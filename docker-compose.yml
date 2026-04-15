@@ -8,7 +8,6 @@ services:
       # Bind-mount local folders here to make them available in the folder picker.
       # Each entry becomes a selectable workspace in the UI.
       # Example: - /absolute/path/on/host:/workspaces/my-project
-      - /Users/loicmarcos/dev/account-service:/workspaces/user-data/account-service
     environment:
       - DATABASE_URL=sqlite:////data/routines.db
       - WORKSPACES_DIR=/workspaces/user-data

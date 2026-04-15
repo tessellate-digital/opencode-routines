@@ -31,6 +31,20 @@ docker compose up --build
 
 Open **http://localhost:8080**, create a routine, pick a trigger, done.
 
+## Mounting local folders
+
+To give routines access to local directories, add bind-mounts to the `backend` service in `docker-compose.yml`:
+
+```yaml
+services:
+  backend:
+    volumes:
+      - /path/to/your/project:/workspaces/user-data/project-name
+      - /path/to/another:/workspaces/user-data/another-name
+```
+
+Each mounted folder appears in the folder picker when creating a routine. The agent can only access directories you explicitly mount — nothing else on your machine is exposed.
+
 ## Coming Soon
 
 - **GitHub triggers** — react to pushes, PRs, issues, and other repo events
