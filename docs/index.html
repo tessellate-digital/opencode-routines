@@ -27,10 +27,59 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: var(--text);
-      background: var(--bg);
+      position: relative;
+      overflow-x: hidden;
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(circle at top center, rgba(0,113,227,0.18), transparent 34%),
+        radial-gradient(circle at 1px 1px, rgba(29,29,31,0.05) 0.9px, transparent 1.2px),
+        radial-gradient(circle at 18px 18px, rgba(0,113,227,0.045) 0.8px, transparent 1px),
+        linear-gradient(180deg, #fafbfd 0%, #ffffff 24%, #f3f5fb 100%);
+      background-size: auto, 22px 22px, 32px 32px, auto;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
       line-height: 1.5;
+    }
+
+    body::before,
+    body::after {
+      content: '';
+      position: absolute;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 50%;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 100% 100%;
+    }
+
+    body::before {
+      top: 28px;
+      left: clamp(-36px, 4vw, 20px);
+      width: 300px;
+      height: 300px;
+      opacity: 0.72;
+      background-image:
+        radial-gradient(circle, rgba(0,113,227,0.12), transparent 72%),
+        radial-gradient(circle, transparent 0 84px, rgba(0,113,227,0.08) 84px 86px, transparent 86px 128px, rgba(0,113,227,0.045) 128px 130px, transparent 130px),
+        radial-gradient(circle, transparent 0 52px, rgba(0,113,227,0.03) 52px 53px, transparent 53px);
+    }
+
+    body::after {
+      top: 54px;
+      right: clamp(-52px, 3vw, 16px);
+      width: 340px;
+      height: 340px;
+      opacity: 0.64;
+      background-image:
+        radial-gradient(circle, rgba(29,29,31,0.07), transparent 72%),
+        radial-gradient(circle, transparent 0 102px, rgba(29,29,31,0.055) 102px 104px, transparent 104px 154px, rgba(29,29,31,0.03) 154px 156px, transparent 156px),
+        radial-gradient(circle, transparent 0 64px, rgba(0,113,227,0.025) 64px 65px, transparent 65px);
+    }
+
+    body > * {
+      position: relative;
+      z-index: 1;
     }
 
     /* ---- Layout ---- */
@@ -559,6 +608,20 @@
 
     /* ---- Responsive ---- */
     @media (max-width: 640px) {
+      body::before {
+        top: 20px;
+        left: -64px;
+        width: 220px;
+        height: 220px;
+        opacity: 0.62;
+      }
+      body::after {
+        top: 56px;
+        right: -92px;
+        width: 250px;
+        height: 250px;
+        opacity: 0.52;
+      }
       .hero { padding: 60px 0 40px; }
       .hero h1 { font-size: 2rem; }
       .hero p { font-size: 1rem; }
