@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: #ffffff;
+  color: #1d1d1f;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer base {
+  a, button {
+    transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+  }
+}
+
+@layer components {
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 6px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: #1d1d1f;
+    color: #ffffff;
+    border: 1px solid #1d1d1f;
+  }
+  .btn-primary:hover { background: #3a3a3c; border-color: #3a3a3c; }
+  .btn-primary:disabled { opacity: 0.45; pointer-events: none; }
+
+  .btn-secondary {
+    background: #ffffff;
+    color: #3a3a3c;
+    border: 1px solid #d1d1d6;
+  }
+  .btn-secondary:hover { background: #f5f5f7; color: #1d1d1f; }
+
+  .btn-danger {
+    background: #ffffff;
+    color: #ff3b30;
+    border: 1px solid #ffd6d3;
+  }
+  .btn-danger:hover { background: #fff5f5; }
+
+  /* Form controls */
+  .input-field,
+  .select-field,
+  .textarea-field {
+    width: 100%;
+    border: 1px solid #d1d1d6;
+    background: #ffffff;
+    color: #1d1d1f;
+    border-radius: 6px;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.875rem;
+  }
+
+  .input-field::placeholder,
+  .textarea-field::placeholder { color: #8e8e93; }
+
+  .input-field:focus,
+  .select-field:focus,
+  .textarea-field:focus {
+    outline: none;
+    border-color: #0071e3;
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+  }
+}

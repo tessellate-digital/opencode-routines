@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    volumes:
+      - db-data:/data
+      # Bind-mount local folders here to make them available in the folder picker.
+      # Each entry becomes a selectable workspace in the UI.
+      # Example: - /absolute/path/on/host:/workspaces/my-project
+      - /Users/loicmarcos/dev/account-service:/workspaces/user-data/account-service
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - DATABASE_URL=sqlite:////data/routines.db
+      - WORKSPACES_DIR=/workspaces/user-data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  workspaces:
