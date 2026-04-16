@@ -39,7 +39,7 @@ function defaultDraft(type: TriggerType, workspacePath: string): TriggerDraft {
     type: 'watcher',
     paths: workspacePath ? [workspacePath] : [],
     events: ['add', 'change', 'addDir'],
-    fileFilter: { mode: 'include', patterns: [] },
+    fileFilter: { mode: 'none', patterns: [] },
   };
 }
 
@@ -68,10 +68,15 @@ function triggerToDraft(t: Trigger, routine: { workspace_path: string }): Trigge
   const fileFilter: FileFilterValue =
     rawFilter && Array.isArray(rawFilter.patterns)
       ? {
-          mode: rawFilter.mode === 'exclude' ? 'exclude' : 'include',
+          mode:
+            rawFilter.mode === 'exclude'
+              ? 'exclude'
+              : rawFilter.mode === 'none'
+                ? 'none'
+                : 'include',
           patterns: rawFilter.patterns,
         }
-      : { mode: 'include', patterns: [] };
+      : { mode: 'none', patterns: [] };
   return {
     type: 'watcher',
     paths,
@@ -266,9 +271,7 @@ function TriggerCard({
           </span>
           <span>{typeLabel}</span>
           {collapsed && (
-            <span className="text-xs font-normal text-[#6e6e73] truncate max-w-[200px]">
-              {summary}
-            </span>
+            <span className="text-xs font-normal text-[#6e6e73] truncate max-w-sm">{summary}</span>
           )}
         </button>
         <button type="button" onClick={onRemove} className="text-xs text-[#ff3b30] hover:underline">
@@ -515,7 +518,7 @@ export default function RoutineForm() {
               paths: draft.paths,
               events: draft.events,
             };
-            if (draft.fileFilter.patterns.length > 0) {
+            if (draft.fileFilter.mode !== 'none' && draft.fileFilter.patterns.length > 0) {
               config.fileFilter = draft.fileFilter;
             }
             await api.createTrigger(routineId, { type: 'watcher', config });

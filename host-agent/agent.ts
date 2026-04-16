@@ -17,7 +17,7 @@ interface WatcherTrigger {
   hostPaths: string[];
   events: string[];
   debounce: number;
-  fileFilter?: { mode: 'include' | 'exclude'; patterns: string[] };
+  fileFilter?: { mode: 'include' | 'exclude' | 'none'; patterns: string[] };
 }
 
 interface TriggerResponse {
@@ -107,7 +107,12 @@ async function fetchWatcherTriggers(): Promise<WatcherTrigger[]> {
       const fileFilter =
         rawFilter && Array.isArray(rawFilter.patterns) && rawFilter.patterns.length > 0
           ? {
-              mode: rawFilter.mode === 'exclude' ? ('exclude' as const) : ('include' as const),
+              mode:
+                rawFilter.mode === 'exclude'
+                  ? ('exclude' as const)
+                  : rawFilter.mode === 'none'
+                    ? ('none' as const)
+                    : ('include' as const),
               patterns: rawFilter.patterns,
             }
           : undefined;
@@ -168,7 +173,7 @@ function matchesFileFilter(
   if (FOLDER_EVENTS.has(evtType)) {
     return true;
   }
-  if (!filter || filter.patterns.length === 0) {
+  if (!filter || filter.mode === 'none' || filter.patterns.length === 0) {
     return true;
   }
   const ext = extname(filePath).toLowerCase();

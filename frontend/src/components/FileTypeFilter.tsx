@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 // ---------------------------------------------------------------------------
 
 export interface FileFilterValue {
-  mode: 'include' | 'exclude';
+  mode: 'include' | 'exclude' | 'none';
   patterns: string[];
 }
 
@@ -112,15 +112,14 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
 
   return (
     <div className="space-y-2">
-      {/* Mode toggle */}
+      {/* Mode toggle — checkboxes so neither needs to be selected */}
       <div className="flex gap-4 text-sm">
         {(['include', 'exclude'] as const).map((m) => (
           <label key={m} className="flex items-center gap-1.5 cursor-pointer">
             <input
-              type="radio"
-              name="file_filter_mode"
+              type="checkbox"
               checked={value.mode === m}
-              onChange={() => onChange({ ...value, mode: m })}
+              onChange={() => onChange({ ...value, mode: value.mode === m ? 'none' : m })}
             />
             {m === 'include' ? 'Only these types' : 'Ignore these types'}
           </label>
@@ -159,7 +158,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
         </button>
 
         {open && (
-          <div className="absolute z-50 mt-1 w-64 rounded-lg border border-[#d1d1d6] bg-white shadow-lg">
+          <div className="absolute z-50 mt-1 w-80 rounded-lg border border-[#d1d1d6] bg-white shadow-lg">
             {/* Search / custom input */}
             <div className="p-2 border-b border-[#f0f0f0]">
               <input
@@ -186,7 +185,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
               )}
 
             {/* Preset list */}
-            <div className="max-h-52 overflow-y-auto py-1">
+            <div className="max-h-64 overflow-y-auto py-1">
               {filtered.map((p) => {
                 const showCat = p.category !== lastCategory;
                 lastCategory = p.category;

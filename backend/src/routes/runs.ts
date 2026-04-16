@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { db } from '../database';
 import { executor } from '../services/executor';
 import { eventBus } from '../services/eventBus';
+import { buildLegacyTranscript } from '../services/legacyTranscript';
 import type { RunRow, RoutineRow } from '../types';
 
 const router = new Hono();
@@ -134,11 +135,40 @@ router.get('/:id/stream', async (c) => {
     });
   }
 
-  const queue = executor.getStream(runId);
+  // connectStream terminates any existing SSE consumer and creates a fresh queue.
+  const queue = executor.connectStream(runId);
   if (!queue) {
-    // No active stream but run is still marked running — the process died without
-    // updating the DB (e.g. container restart).  Mark it 'lost' so it's visually
-    // distinct and the frontend stops trying to stream.
+    // No active stream — the run may have finished between our initial status
+    // check and this point (race with executor's close()), or the process died.
+    // Re-read the DB to distinguish between the two cases.
+    const freshRow = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
+    if (freshRow && ['success', 'failed', 'cancelled', 'lost'].includes(freshRow.status)) {
+      // Already finished — replay stored output (same as the finished-run path)
+      return streamSSE(c, async (stream) => {
+        if (freshRow.stdout) {
+          for (const line of freshRow.stdout.split('\n')) {
+            if (!line) {
+              continue;
+            }
+            try {
+              const evt = JSON.parse(line) as { type: string; data: string };
+              await stream.writeSSE({ event: evt.type, data: evt.data });
+            } catch {
+              await stream.writeSSE({ event: 'text', data: line });
+            }
+          }
+        }
+        if (freshRow.stderr) {
+          await stream.writeSSE({ event: 'stderr', data: freshRow.stderr });
+        }
+        await stream.writeSSE({
+          event: 'done',
+          data: JSON.stringify({ status: freshRow.status, exit_code: freshRow.exit_code }),
+        });
+      });
+    }
+
+    // Truly lost — process died without updating the DB
     const now = new Date().toISOString();
     db.prepare(
       `UPDATE runs SET status = 'lost', finished_at = ? WHERE id = ? AND status = 'running'`
@@ -152,22 +182,28 @@ router.get('/:id/stream', async (c) => {
   }
 
   return streamSSE(c, async (stream) => {
+    // Replay events that were emitted before this client connected.
+    // This handles page refreshes and late-joining viewers so they see
+    // the full conversation so far, not just future events.
+    const history = executor.getHistory(runId);
+    for (const evt of history) {
+      await stream.writeSSE({ event: evt.type, data: evt.data });
+    }
+
+    // Stream new events going forward.  The executor pushes an authoritative
+    // `done` event (with the final status) before the `null` sentinel, so we
+    // break on either signal.  A bare `null` without a preceding done means
+    // the stream was interrupted (e.g. a reconnecting client replaced this
+    // consumer via connectStream) — we just break silently.
     while (true) {
       const msg = await queue.get();
       if (msg === null) {
-        const finalRun = db
-          .prepare('SELECT status, exit_code FROM runs WHERE id = ?')
-          .get(runId) as Pick<RunRow, 'status' | 'exit_code'> | undefined;
-        await stream.writeSSE({
-          event: 'done',
-          data: JSON.stringify({
-            status: finalRun?.status ?? 'unknown',
-            exit_code: finalRun?.exit_code ?? null,
-          }),
-        });
         break;
       }
       await stream.writeSSE({ event: msg.type, data: msg.data });
+      if (msg.type === 'done') {
+        break;
+      }
     }
   });
 });
@@ -198,10 +234,16 @@ router.get('/:id/thread', (c) => {
   return c.json(chain.map(runToResponse));
 });
 
-// Reply to a finished run — creates a new follow-up run with full conversation context.
-// The new run stores only the user's follow-up text as `prompt` and links to the parent
-// via `parent_run_id`.  The full conversation history is reconstructed at execution time
-// and sent to the CLI so the model has context.
+// Reply to a finished run — creates a new follow-up run linked via parent_run_id.
+//
+// SDK-backed runs (session_id IS NOT NULL):
+//   The existing session_id is passed to executor.startRun() so the SDK resumes
+//   the conversation natively.  No stdout history reconstruction is performed.
+//
+// Legacy runs (session_id IS NULL):
+//   The full ancestor chain is walked, a clean transcript is built from saved
+//   prompts + parsed stdout text events, and a synthetic prompt seeds a fresh
+//   SDK session.  The new session_id is stored only on the new run row.
 router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) })), async (c) => {
   const runId = c.req.param('id');
   const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
@@ -224,43 +266,38 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
 
   const { text } = c.req.valid('json');
 
-  // Walk the ancestor chain to reconstruct the full conversation for the CLI.
-  // Each run in the chain has: prompt (user text) + stdout (assistant output).
-  const chain: RunRow[] = [];
-  let cur: RunRow | undefined = row;
-  while (cur) {
-    chain.unshift(cur);
-    cur = cur.parent_run_id
-      ? (db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as RunRow | undefined)
-      : undefined;
-  }
+  let promptForRun: string;
+  let existingSessionId: string | undefined;
 
-  // Build the full prompt: each turn's user prompt + assistant text output
-  const parts: string[] = [];
-  for (const r of chain) {
-    parts.push(r.prompt);
-    const assistantText = r.stdout
-      ? r.stdout
-          .split('\n')
-          .flatMap((line: string) => {
-            if (!line) {
-              return [];
-            }
-            try {
-              const evt = JSON.parse(line) as { type: string; data: string };
-              return evt.type === 'text' ? [evt.data] : [];
-            } catch {
-              return [];
-            }
-          })
-          .join('')
-      : '';
-    if (assistantText) {
-      parts.push(`\n\n--- Assistant response ---\n${assistantText}`);
+  if (row.session_id !== null) {
+    // ── SDK-backed path ──────────────────────────────────────────────────────
+    // The session already holds the conversation history; just send the new
+    // user message and reuse the same session.
+    promptForRun = text;
+    existingSessionId = row.session_id;
+  } else {
+    // ── Legacy path ──────────────────────────────────────────────────────────
+    // Walk the ancestor chain to reconstruct a clean text transcript.
+    const chain: RunRow[] = [];
+    let cur: RunRow | undefined = row;
+    while (cur) {
+      chain.unshift(cur);
+      cur = cur.parent_run_id
+        ? (db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as
+            | RunRow
+            | undefined)
+        : undefined;
     }
+
+    const transcript = buildLegacyTranscript(chain);
+    if (transcript) {
+      promptForRun = `Legacy conversation transcript:\n${transcript}\n\n--- User follow-up ---\n${text}`;
+    } else {
+      promptForRun = text;
+    }
+    // No existingSessionId — executor will create a fresh SDK session
+    existingSessionId = undefined;
   }
-  parts.push(`\n\n--- User follow-up ---\n${text}`);
-  const fullPrompt = parts.join('');
 
   const newRunId = randomUUID();
   const now = new Date().toISOString();
@@ -278,7 +315,7 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
     status: 'pending',
   });
   executor
-    .startRun(newRunId, routine, fullPrompt)
+    .startRun(newRunId, routine, promptForRun, existingSessionId)
     .catch((err) => console.error(`Reply run ${newRunId} error:`, err));
 
   return c.json({ run_id: newRunId }, 202);
