@@ -361,6 +361,12 @@ export default function RunDetail() {
     ),
     onStderr: useCallback(() => {}, []),
     onStdout: useCallback(() => {}, []),
+    onReconnect: useCallback(() => {
+      // Clear live segments so replayed history from the backend rebuilds
+      // them cleanly — avoids duplicates and visible flicker.
+      liveRef.current = [];
+      setLiveSegments([]);
+    }, []),
     onDone: useCallback(() => {
       stopPolling();
       setIsStreaming(false);
@@ -368,6 +374,7 @@ export default function RunDetail() {
       setTimeout(() => load(), 400);
     }, [load, stopPolling]),
     onStreamError: useCallback(() => {
+      // Only called after all retries are exhausted — fall back to polling
       stopPolling();
       setIsStreaming(false);
       liveRef.current = [];

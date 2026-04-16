@@ -186,7 +186,7 @@ function CopilotDeviceFlow({
 
   const stopPolling = () => {
     if (pollingRef.current) {
-      clearInterval(pollingRef.current);
+      clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
   };
@@ -207,31 +207,45 @@ function CopilotDeviceFlow({
       // Open GitHub in a new tab
       window.open(data.verification_uri, '_blank');
 
-      // Start polling
-      const interval = Math.max((data.interval || 5) * 1000, 5000);
-      pollingRef.current = setInterval(async () => {
-        try {
-          const poll = await api.copilotPoll(data.device_code);
-          if (poll.status === 'success') {
-            stopPolling();
-            setPhase('success');
-            // Give a brief moment to show success before closing
-            setTimeout(onDone, 1200);
-          } else if (poll.status === 'expired_token') {
-            stopPolling();
-            setPhase('error');
-            setErrorMsg('The code expired. Please try again.');
-          } else if (poll.status === 'access_denied') {
-            stopPolling();
-            setPhase('error');
-            setErrorMsg('Authorization was denied.');
+      // Start polling after a delay — the user needs time to navigate to
+      // GitHub, authorize, and return.  Use recursive setTimeout so the
+      // interval can be increased when GitHub returns "slow_down".
+      let pollInterval = Math.max((data.interval || 5) * 1000, 5000);
+      const INITIAL_DELAY = 10_000;
+
+      function schedulePoll() {
+        pollingRef.current = setTimeout(async () => {
+          try {
+            const poll = await api.copilotPoll(data.device_code);
+            if (poll.status === 'success') {
+              stopPolling();
+              setPhase('success');
+              setTimeout(onDone, 1200);
+              return;
+            } else if (poll.status === 'expired_token') {
+              stopPolling();
+              setPhase('error');
+              setErrorMsg('The code expired. Please try again.');
+              return;
+            } else if (poll.status === 'access_denied') {
+              stopPolling();
+              setPhase('error');
+              setErrorMsg('Authorization was denied.');
+              return;
+            } else if (poll.status === 'slow_down') {
+              // GitHub requires increasing the interval by 5 seconds
+              pollInterval += 5000;
+            }
+            // authorization_pending / slow_down → schedule next poll
+          } catch (err) {
+            console.warn('[copilot poll]', err);
           }
-          // authorization_pending / slow_down → keep polling
-        } catch (err) {
-          // Log but don't stop — transient network errors are expected
-          console.warn('[copilot poll]', err);
-        }
-      }, interval);
+          schedulePoll();
+        }, pollInterval);
+      }
+
+      // Wait before the first poll — user is still on GitHub
+      pollingRef.current = setTimeout(schedulePoll, INITIAL_DELAY);
     } catch (err) {
       setPhase('error');
       setErrorMsg(err instanceof Error ? err.message : 'Failed to start device flow');

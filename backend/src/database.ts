@@ -112,6 +112,15 @@ export function initDb(): void {
   if (!runColumns.includes('parent_run_id')) {
     db.exec('ALTER TABLE runs ADD COLUMN parent_run_id TEXT DEFAULT NULL');
   }
+  // Migration: add session_id for SDK-backed OpenCode session pointers
+  if (!runColumns.includes('session_id')) {
+    db.exec('ALTER TABLE runs ADD COLUMN session_id TEXT DEFAULT NULL');
+  }
+  // Migration: add assistant_message_id for resumable reply threading
+  if (!runColumns.includes('assistant_message_id')) {
+    db.exec('ALTER TABLE runs ADD COLUMN assistant_message_id TEXT DEFAULT NULL');
+  }
+
   // Migration: add routine_name snapshot so the name persists even if routine is deleted
   if (!runColumns.includes('routine_name')) {
     db.exec("ALTER TABLE runs ADD COLUMN routine_name TEXT NOT NULL DEFAULT ''");

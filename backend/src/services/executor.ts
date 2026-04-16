@@ -1,101 +1,53 @@
-import { spawn, execFile } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
-import * as readline from 'readline';
 import * as path from 'path';
 import * as fs from 'fs';
-import { config } from '../config';
 import { db } from '../database';
 import { eventBus } from './eventBus';
+import * as runStreamStore from './runStreamStore';
+import { AsyncQueue } from './runStreamStore';
+import type { StreamEvent } from './runStreamStore';
+import * as pool from './opencodeServerPool';
+import * as relay from './opencodeEventRelay';
 import type { RoutineRow } from '../types';
 
 const execFileAsync = promisify(execFile);
 
-interface StreamEvent {
-  type: string;
-  data: string;
+// ─── Model string parser ──────────────────────────────────────────────────────
+
+/**
+ * Parse a `provider/model` string into the SDK model object.
+ *
+ * - Empty string → returns `null` (let the server pick the default).
+ * - `provider/model` → `{ providerID: 'provider', modelID: 'model' }`.
+ * - `provider/nested/model` → `{ providerID: 'provider', modelID: 'nested/model' }`.
+ * - Any other format (no slash, leading slash, trailing slash) → throws.
+ */
+export function parseModelString(model: string): { providerID: string; modelID: string } | null {
+  if (model === '') {
+    return null;
+  }
+
+  const slashIdx = model.indexOf('/');
+  if (slashIdx === -1 || slashIdx === 0 || slashIdx === model.length - 1) {
+    throw new Error(
+      `Malformed model string "${model}". Expected format: "providerID/modelID" (e.g. "anthropic/claude-opus-4-5").`
+    );
+  }
+
+  const providerID = model.slice(0, slashIdx);
+  const modelID = model.slice(slashIdx + 1);
+  return { providerID, modelID };
 }
 
-class AsyncQueue<T> {
-  private items: T[] = [];
-  private waiters: ((value: T) => void)[] = [];
-
-  push(item: T): void {
-    const waiter = this.waiters.shift();
-    if (waiter) {
-      waiter(item);
-    } else {
-      this.items.push(item);
-    }
-  }
-
-  async get(): Promise<T> {
-    const item = this.items.shift();
-    if (item !== undefined) {
-      return item;
-    }
-    return new Promise<T>((resolve) => {
-      this.waiters.push(resolve);
-    });
-  }
-}
-
-function parseOpencodeEvent(line: string): StreamEvent | null {
-  let event: Record<string, unknown>;
-  try {
-    event = JSON.parse(line);
-  } catch {
-    return { type: 'text', data: line };
-  }
-
-  const etype = event.type as string;
-
-  if (etype === 'text') {
-    const text = ((event.part as Record<string, unknown>)?.text as string) ?? '';
-    if (text) {
-      return { type: 'text', data: text };
-    }
-  } else if (etype === 'tool_call') {
-    const part = (event.part as Record<string, unknown>) ?? {};
-    const tool = (part.name ?? part.tool ?? 'unknown') as string;
-    let args = (part.input ?? part.args ?? '') as unknown;
-    if (typeof args === 'object') {
-      args = JSON.stringify(args, null, 2);
-    }
-    return { type: 'tool', data: `[tool: ${tool}]\n${args}\n` };
-  } else if (etype === 'tool_result') {
-    const part = (event.part as Record<string, unknown>) ?? {};
-    let result = (part.output ?? part.result ?? '') as unknown;
-    if (typeof result === 'object') {
-      result = JSON.stringify(result, null, 2);
-    }
-    return { type: 'tool_result', data: `[result]\n${result}\n` };
-  } else if (etype === 'step_start') {
-    return { type: 'status', data: '--- step ---\n' };
-  } else if (etype === 'step_finish') {
-    const part = (event.part as Record<string, unknown>) ?? {};
-    const tokens = (part.tokens as Record<string, unknown>) ?? {};
-    const cost = (part.cost as number) ?? 0;
-    if (tokens || cost) {
-      return {
-        type: 'status',
-        data: `--- done (tokens: ${tokens.total ?? 0}, cost: $${cost.toFixed(4)}) ---\n`,
-      };
-    }
-  } else if (etype === 'error') {
-    const err = (event.error as Record<string, unknown>) ?? {};
-    const msg =
-      ((err.data as Record<string, unknown>)?.message as string) ??
-      (err.name as string) ??
-      'unknown error';
-    return { type: 'error', data: `[error] ${msg}\n` };
-  }
-
-  return null;
-}
+// ─── Executor class ───────────────────────────────────────────────────────────
 
 export class Executor {
-  private processes = new Map<string, ReturnType<typeof spawn>>();
-  private streams = new Map<string, AsyncQueue<StreamEvent | null>>();
+  /**
+   * Active SDK-backed runs: runId → { client, sessionId }
+   * Used by cancelRun() to abort sessions and by the pool cleanup.
+   */
+  private activeSessions = new Map<string, { client: unknown; sessionId: string }>();
 
   private async prepareWorkspace(routine: RoutineRow): Promise<string> {
     // If the routine has an explicit local folder, use it directly.
@@ -166,7 +118,7 @@ export class Executor {
    *
    * Returns `{ context, fullPrompt }` — `context` is the preamble string
    * (stored in metadata for the frontend), `fullPrompt` is what's sent to
-   * the CLI.
+   * the SDK.
    */
   private buildPromptContext(
     routine: RoutineRow,
@@ -230,7 +182,12 @@ export class Executor {
     return { context, fullPrompt };
   }
 
-  async startRun(runId: string, routine: RoutineRow, prompt: string): Promise<void> {
+  async startRun(
+    runId: string,
+    routine: RoutineRow,
+    prompt: string,
+    existingSessionId?: string
+  ): Promise<void> {
     // Build context preamble and store it in the run's metadata
     const existingMeta = db.prepare('SELECT metadata FROM runs WHERE id = ?').get(runId) as
       | { metadata: string }
@@ -266,130 +223,142 @@ export class Executor {
       status: 'running',
     });
 
-    const queue = new AsyncQueue<StreamEvent | null>();
-    this.streams.set(runId, queue);
+    runStreamStore.openRun(runId);
+
+    // Parse model string; on error, persist and bail out immediately
+    let sdkModel: { providerID: string; modelID: string } | null;
+    try {
+      sdkModel = parseModelString(routine.model ?? '');
+    } catch (err) {
+      db.prepare(
+        `UPDATE runs SET status = 'failed', stderr = ?, exit_code = NULL, finished_at = ? WHERE id = ?`
+      ).run(`${err}`, new Date().toISOString(), runId);
+      eventBus.broadcast('run_finished', {
+        run_id: runId,
+        routine_id: routine.id,
+        status: 'failed',
+      });
+      runStreamStore.close(runId, { status: 'failed', exit_code: null });
+      return;
+    }
+
+    // Prepare workspace
+    let workdir: string;
+    try {
+      workdir = await this.prepareWorkspace(routine);
+    } catch (err) {
+      db.prepare(
+        `UPDATE runs SET status = 'failed', stderr = ?, exit_code = NULL, finished_at = ? WHERE id = ?`
+      ).run(`Workspace preparation failed: ${err}`, new Date().toISOString(), runId);
+      eventBus.broadcast('run_finished', {
+        run_id: runId,
+        routine_id: routine.id,
+        status: 'failed',
+      });
+      runStreamStore.close(runId, { status: 'failed', exit_code: null });
+      return;
+    }
+
+    const env = this.buildEnv(routine);
+
+    // Acquire a pooled server context for this workspace + env
+    let serverCtx: pool.ServerContext;
+    try {
+      serverCtx = await pool.acquireContext({ cwd: workdir, env });
+    } catch (err) {
+      db.prepare(
+        `UPDATE runs SET status = 'failed', stderr = ?, exit_code = NULL, finished_at = ? WHERE id = ?`
+      ).run(`Failed to acquire OpenCode server: ${err}`, new Date().toISOString(), runId);
+      eventBus.broadcast('run_finished', {
+        run_id: runId,
+        routine_id: routine.id,
+        status: 'failed',
+      });
+      runStreamStore.close(runId, { status: 'failed', exit_code: null });
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = serverCtx.client as any;
+
+    // Track whether prompt() resolved normally so the finally block can set
+    // the final run status (after waitForDrain + hadErrors check).
+    let promptCompletedNormally = false;
 
     try {
-      let workdir: string;
-      try {
-        workdir = await this.prepareWorkspace(routine);
-      } catch (err) {
-        db.prepare(
-          `UPDATE runs SET status = 'failed', stderr = ?, finished_at = ? WHERE id = ?`
-        ).run(`Workspace preparation failed: ${err}`, new Date().toISOString(), runId);
-        eventBus.broadcast('run_finished', {
-          run_id: runId,
-          routine_id: routine.id,
-          status: 'failed',
-        });
-        queue.push(null);
-        this.streams.delete(runId);
+      // Determine session ID:
+      // 1. Use caller-supplied existingSessionId (reply path — skip session.create()).
+      // 2. Reuse existing session_id from DB if already persisted.
+      // 3. Otherwise create a fresh SDK session.
+      let sessionId: string | null = existingSessionId ?? null;
+
+      if (!sessionId) {
+        const existingRunRow = db.prepare('SELECT session_id FROM runs WHERE id = ?').get(runId) as
+          | { session_id: string | null }
+          | undefined;
+        sessionId = existingRunRow?.session_id ?? null;
+      }
+
+      if (!sessionId) {
+        // Create a new SDK session
+        const createResult = await client.session.create();
+        const session = createResult?.data ?? createResult;
+        sessionId = (session?.id ?? session?.sessionID ?? null) as string | null;
+        if (!sessionId) {
+          throw new Error('SDK session.create() returned no session ID');
+        }
+      }
+
+      // Persist session_id as soon as it is known (defensive: may already be set)
+      db.prepare('UPDATE runs SET session_id = ? WHERE id = ?').run(sessionId, runId);
+
+      // Register with event relay BEFORE sending the prompt so no events are missed
+      relay.subscribeRun(serverCtx.client, sessionId, runId);
+
+      // Track active session for cancellation
+      this.activeSessions.set(runId, { client: serverCtx.client, sessionId });
+
+      // ── Cancellation race guard ──────────────────────────────────────────
+      // Check if cancelRun() was called during workspace/pool/session setup,
+      // before activeSessions was populated.  The finally block will clean up
+      // serverCtx and runStreamStore, so we only need to return early here.
+      const prePromptRow = db.prepare('SELECT status FROM runs WHERE id = ?').get(runId) as
+        | { status: string }
+        | undefined;
+      if (prePromptRow?.status === 'cancelled') {
         return;
       }
 
-      const env = this.buildEnv(routine);
-      const cmd = [config.opencodePath, 'run', fullPrompt];
-      if (routine.model) {
-        cmd.push('--model', routine.model);
-      } else if (config.opencodeModel) {
-        cmd.push('--model', config.opencodeModel);
-      }
-      cmd.push('--format', 'json');
-
-      let proc: ReturnType<typeof spawn>;
-      try {
-        proc = spawn(cmd[0], cmd.slice(1), {
-          cwd: workdir,
-          env,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
-      } catch (err) {
-        db.prepare(
-          `UPDATE runs SET status = 'failed', stderr = ?, finished_at = ? WHERE id = ?`
-        ).run(`Failed to start opencode: ${err}`, new Date().toISOString(), runId);
-        eventBus.broadcast('run_finished', {
-          run_id: runId,
-          routine_id: routine.id,
-          status: 'failed',
-        });
-        queue.push(null);
-        this.streams.delete(runId);
-        return;
-      }
-
-      this.processes.set(runId, proc);
-
-      const stdoutBuf: string[] = [];
-      const stderrBuf: string[] = [];
-
-      // Track whether we've seen a step_finish so we can apply an idle
-      // timeout — the opencode CLI sometimes hangs after finishing.
-      let sawStepFinish = false;
-      let killedByIdleTimeout = false;
-      let idleTimer: ReturnType<typeof setTimeout> | null = null;
-      const IDLE_TIMEOUT_MS = 15_000; // 15 seconds after last step_finish with no new output
-
-      const resetIdleTimer = () => {
-        if (idleTimer) {
-          clearTimeout(idleTimer);
-        }
-        idleTimer = null;
+      // Build prompt body
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const promptBody: Record<string, any> = {
+        parts: [{ type: 'text', text: fullPrompt }],
       };
 
-      const startIdleTimer = () => {
-        resetIdleTimer();
-        idleTimer = setTimeout(() => {
-          killedByIdleTimeout = true;
-          console.warn(
-            `[executor] Run ${runId}: opencode process idle for ${IDLE_TIMEOUT_MS / 1000}s after step_finish — killing.`
-          );
-          proc.kill('SIGTERM');
-          setTimeout(() => {
-            if (this.processes.has(runId)) {
-              proc.kill('SIGKILL');
-            }
-          }, 5000);
-        }, IDLE_TIMEOUT_MS);
-      };
+      if (sdkModel) {
+        promptBody.model = sdkModel;
+      }
 
-      const rl = readline.createInterface({ input: proc.stdout! });
-      rl.on('line', (line) => {
-        const parsed = parseOpencodeEvent(line);
-        if (parsed) {
-          stdoutBuf.push(JSON.stringify(parsed));
-          queue.push(parsed);
+      if (routine.agent) {
+        promptBody.agent = routine.agent;
+      }
 
-          // Detect step_finish to start idle timeout
-          if (parsed.type === 'status' && parsed.data.startsWith('--- done')) {
-            sawStepFinish = true;
-            startIdleTimer();
-          } else {
-            // Any other output resets the idle timer (new step may have started)
-            if (sawStepFinish) {
-              sawStepFinish = false;
-              resetIdleTimer();
-            }
-          }
-        }
+      // Send the prompt — this call blocks until the LLM finishes responding
+      const result = await client.session.prompt({
+        path: { id: sessionId },
+        body: promptBody,
       });
+      const promptResult = result?.data ?? result;
 
-      proc.stderr!.on('data', (chunk: Buffer) => {
-        const text = chunk.toString('utf8');
-        stderrBuf.push(text);
-        queue.push({ type: 'stderr', data: text });
-      });
-
-      // Wait for readline to finish processing all buffered lines before
-      // relying on the process exit code.  This avoids a race where
-      // proc.on('close') fires before readline has emitted trailing lines.
-      const rlClosed = new Promise<void>((resolve) => rl.on('close', resolve));
-
-      const exitCode = await new Promise<number>((resolve) => {
-        proc.on('close', (code) => resolve(code ?? 1));
-      });
-
-      resetIdleTimer();
-      await rlClosed;
+      // Persist assistant_message_id if available in the response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const assistantMessageId = (promptResult as any)?.info?.id ?? null;
+      if (assistantMessageId) {
+        db.prepare('UPDATE runs SET assistant_message_id = ? WHERE id = ?').run(
+          assistantMessageId,
+          runId
+        );
+      }
 
       // Re-read status from DB — cancel may have already transitioned it
       const currentRow = db.prepare('SELECT status FROM runs WHERE id = ?').get(runId) as
@@ -397,34 +366,10 @@ export class Executor {
         | undefined;
       const alreadyCancelled = currentRow?.status === 'cancelled';
 
-      const MAX = 1024 * 1024;
-      if (alreadyCancelled) {
-        // Preserve cancelled status, just persist output
-        db.prepare(`UPDATE runs SET stdout = ?, stderr = ?, exit_code = ? WHERE id = ?`).run(
-          stdoutBuf.join('\n').slice(0, MAX),
-          stderrBuf.join('').slice(0, MAX),
-          exitCode,
-          runId
-        );
-      } else {
-        const finalStatus =
-          exitCode === 0 || (killedByIdleTimeout && sawStepFinish) ? 'success' : 'failed';
-        db.prepare(
-          `UPDATE runs SET stdout = ?, stderr = ?, exit_code = ?, status = ?, finished_at = ? WHERE id = ?`
-        ).run(
-          stdoutBuf.join('\n').slice(0, MAX),
-          stderrBuf.join('').slice(0, MAX),
-          exitCode,
-          finalStatus,
-          new Date().toISOString(),
-          runId
-        );
-        eventBus.broadcast('run_finished', {
-          run_id: runId,
-          routine_id: routine.id,
-          status: finalStatus,
-          exit_code: exitCode,
-        });
+      if (!alreadyCancelled) {
+        // Mark completion — final status (success or failed) is written in the
+        // finally block after waitForDrain so we can incorporate hadErrors.
+        promptCompletedNormally = true;
       }
     } catch (err) {
       // Don't overwrite cancelled status on unexpected errors either
@@ -433,7 +378,7 @@ export class Executor {
         | undefined;
       if (currentRow?.status !== 'cancelled') {
         db.prepare(
-          `UPDATE runs SET status = 'failed', stderr = ?, finished_at = ? WHERE id = ?`
+          `UPDATE runs SET status = 'failed', stderr = ?, exit_code = NULL, finished_at = ? WHERE id = ?`
         ).run(`Unexpected error: ${err}`, new Date().toISOString(), runId);
         eventBus.broadcast('run_finished', {
           run_id: runId,
@@ -442,9 +387,61 @@ export class Executor {
         });
       }
     } finally {
-      queue.push(null);
-      this.processes.delete(runId);
-      this.streams.delete(runId);
+      const activeSession = this.activeSessions.get(runId);
+      let finalStatus = 'unknown';
+      let finalExitCode: number | null = null;
+
+      if (activeSession) {
+        await relay.waitForDrain(activeSession.sessionId, 10_000);
+
+        // Write the final run status now that all relay events have been received.
+        // This is intentionally deferred from the try block so hadErrors can
+        // downgrade a successful completion to failed when session.error fired.
+        if (promptCompletedNormally) {
+          // Defense in depth: check both the relay's error flag and the stream
+          // history for error events, in case there's a timing gap in the relay.
+          const errored =
+            relay.hadErrors(activeSession.sessionId) || runStreamStore.hasErrorEvents(runId);
+          if (errored) {
+            finalStatus = 'failed';
+            db.prepare(
+              `UPDATE runs SET status = 'failed', stderr = ?, exit_code = NULL, finished_at = ? WHERE id = ?`
+            ).run(
+              'Run completed with session errors — see error events in stream',
+              new Date().toISOString(),
+              runId
+            );
+            eventBus.broadcast('run_finished', {
+              run_id: runId,
+              routine_id: routine.id,
+              status: 'failed',
+            });
+          } else {
+            finalStatus = 'success';
+            db.prepare(
+              `UPDATE runs SET status = 'success', exit_code = NULL, finished_at = ? WHERE id = ?`
+            ).run(new Date().toISOString(), runId);
+            eventBus.broadcast('run_finished', {
+              run_id: runId,
+              routine_id: routine.id,
+              status: 'success',
+              exit_code: null,
+            });
+          }
+        } else {
+          // catch block already wrote status; read it back for the done payload.
+          const row = db.prepare('SELECT status, exit_code FROM runs WHERE id = ?').get(runId) as
+            | { status: string; exit_code: number | null }
+            | undefined;
+          finalStatus = row?.status ?? 'failed';
+          finalExitCode = row?.exit_code ?? null;
+        }
+
+        relay.unsubscribeRun(activeSession.sessionId);
+        this.activeSessions.delete(runId);
+      }
+      serverCtx.release();
+      runStreamStore.close(runId, { status: finalStatus, exit_code: finalExitCode });
     }
   }
 
@@ -456,23 +453,35 @@ export class Executor {
 
     eventBus.broadcast('run_cancelled', { run_id: runId, status: 'cancelled' });
 
-    // Best-effort kill if we still have the process handle
-    const proc = this.processes.get(runId);
-    if (proc) {
-      proc.kill('SIGTERM');
-      await new Promise<void>((resolve) => setTimeout(resolve, 5000));
-      if (this.processes.has(runId)) {
-        proc.kill('SIGKILL');
+    // Best-effort abort via SDK — never kill the shared pooled server
+    const activeSession = this.activeSessions.get(runId);
+    if (activeSession) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const c = activeSession.client as any;
+      try {
+        await c.session.abort({ path: { id: activeSession.sessionId } });
+      } catch {
+        // Best-effort — ignore errors (run is already marked cancelled in DB)
       }
     }
 
-    // Clean up stream so SSE clients get notified
-    const queue = this.streams.get(runId);
-    queue?.push(null);
+    // Close the run stream so SSE clients get the end-of-stream signal
+    runStreamStore.close(runId, { status: 'cancelled', exit_code: null });
   }
 
-  getStream(runId: string): AsyncQueue<StreamEvent | null> | undefined {
-    return this.streams.get(runId);
+  /**
+   * Create a fresh queue for a new SSE consumer.  Terminates any existing
+   * consumer (by pushing `null` to the old queue) and swaps in the new one
+   * so future events flow to the new client.  Returns `null` if no active
+   * stream exists for the run.
+   */
+  connectStream(runId: string): AsyncQueue<StreamEvent | null> | null {
+    return runStreamStore.connectStream(runId);
+  }
+
+  /** Returns all events emitted so far for a running stream (for replay to late-joining clients). */
+  getHistory(runId: string): StreamEvent[] {
+    return runStreamStore.getHistory(runId);
   }
 }
 

@@ -2,14 +2,14 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import { config } from './config';
 import { initDb, db } from './database';
 import { schedulerService } from './services/scheduler';
 import { eventBus } from './services/eventBus';
+import { disposeAll as disposeServerPool, acquireContext } from './services/opencodeServerPool';
+import { flattenProviderModels } from './lib/modelUtils';
 import routinesRouter from './routes/routines';
 import triggersRouter from './routes/triggers';
 import runsRouter from './routes/runs';
@@ -17,7 +17,6 @@ import webhooksRouter from './routes/webhooks';
 import settingsRouter from './routes/settings';
 import copilotAuthRouter from './routes/copilotAuth';
 
-const execAsync = promisify(exec);
 const app = new Hono();
 
 // Auth middleware for /api routes
@@ -82,7 +81,7 @@ app.get('/api/events', async (c) => {
 });
 
 // Build an env that includes all stored settings (API keys etc.)
-// so CLI commands like `opencode models` can see configured providers.
+// so SDK contexts for global operations like /api/models can use configured providers.
 function buildGlobalEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   const rows = db.prepare('SELECT key, value FROM settings').all() as Array<{
@@ -95,21 +94,28 @@ function buildGlobalEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-// Models endpoint
+// Models endpoint — uses SDK client (no shell-out)
 app.get('/api/models', async (c) => {
+  let context;
   try {
     const env = buildGlobalEnv();
-    const { stdout } = await execAsync(`${config.opencodePath} models`, {
-      timeout: 30_000,
-      env,
-    });
-    const models = stdout
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.includes('/') && !l.startsWith('#') && !l.startsWith('='));
+    context = await acquireContext({ cwd: config.workspacesDir, env });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = context.client as any;
+    const result = await client.config.providers();
+    // SDK defaults throwOnError:false — non-throwing failures surface via result.error
+    if (result.error) {
+      return c.json({ models: [], error: String(result.error) });
+    }
+    const providers = (result?.data?.providers ?? []) as Parameters<
+      typeof flattenProviderModels
+    >[0];
+    const models = flattenProviderModels(providers);
     return c.json({ models });
   } catch (err) {
     return c.json({ models: [], error: String(err) });
+  } finally {
+    context?.release();
   }
 });
 
@@ -222,6 +228,21 @@ if (fs.existsSync(frontendDist)) {
 // Start
 initDb();
 schedulerService.start();
+
+// Register shutdown hooks so pooled opencode servers are cleaned up on exit
+async function shutdown(signal?: string) {
+  if (signal) {
+    console.log(`Received ${signal}, shutting down…`);
+  }
+  await disposeServerPool();
+  process.exit(0);
+}
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('exit', () => {
+  // Synchronous best-effort: disposeAll kills child processes
+  void disposeServerPool();
+});
 
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`Server running on http://0.0.0.0:${config.port}`);

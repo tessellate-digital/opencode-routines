@@ -16,6 +16,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@hono/zod-validator": "^0.4.0",
+    "@opencode-ai/sdk": "^1.4.6",
     "better-sqlite3": "^11.4.0",
     "chokidar": "^3.6.0",
     "hono": "^4.6.0",
@@ -31,6 +32,7 @@
     "prettier": "3.8.3",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^4.1.4"
   }
 }

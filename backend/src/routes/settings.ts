@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { db } from '../database';
 import { SettingCreateSchema } from '../types';
 import type { SettingRow } from '../types';
+import { invalidateAll } from '../services/opencodeServerPool';
 
 const router = new Hono();
 
@@ -32,6 +33,9 @@ router.put('/', zValidator('json', SettingCreateSchema), (c) => {
   ).run(data.key, data.value, data.is_secret ? 1 : 0, now);
 
   const row = db.prepare('SELECT * FROM settings WHERE key = ?').get(data.key) as SettingRow;
+  // Invalidate pooled server contexts — settings env may have changed.
+  // Servers with active runs are not killed; they become stale and are recycled after run completion.
+  void invalidateAll();
   return c.json(settingToResponse(row));
 });
 
@@ -42,6 +46,8 @@ router.delete('/:key', (c) => {
     return c.json({ detail: 'Setting not found' }, 404);
   }
   db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+  // Invalidate pooled server contexts — removed setting may have been an API key.
+  void invalidateAll();
   return new Response(null, { status: 204 });
 });
 

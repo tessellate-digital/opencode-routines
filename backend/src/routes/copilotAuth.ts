@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { db } from '../database';
+import { invalidateAll } from '../services/opencodeServerPool';
 
 /**
  * GitHub Copilot uses the OAuth Device Authorization flow.
@@ -111,6 +112,9 @@ router.get('/poll', async (c) => {
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, is_secret = 1, updated_at = excluded.updated_at
     `
     ).run('GITHUB_TOKEN', data.access_token, now);
+
+    // Invalidate pooled server contexts so the new token is picked up on the next run.
+    void invalidateAll();
 
     return c.json({ status: 'success' });
   }
