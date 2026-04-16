@@ -44,7 +44,7 @@ function ConfiguredProviderCard({
   settingKeys: Set<string>;
   onRemove: (keys: string[]) => void;
 }) {
-  const configured = provider.fields.filter(f => settingKeys.has(f.key));
+  const configured = provider.fields.filter((f) => settingKeys.has(f.key));
   return (
     <div className="rounded-lg border border-[#d1d1d6] bg-white">
       <div className="flex items-start justify-between gap-4 px-4 py-3">
@@ -59,17 +59,19 @@ function ConfiguredProviderCard({
           <p className="mt-0.5 text-xs text-[#6e6e73]">{provider.description}</p>
         </div>
         <button
-          onClick={() => onRemove(configured.map(f => f.key))}
+          onClick={() => onRemove(configured.map((f) => f.key))}
           className="btn btn-danger shrink-0"
         >
           Remove
         </button>
       </div>
       <div className="border-t border-[#f0f0f0] divide-y divide-[#f0f0f0]">
-        {configured.map(f => (
+        {configured.map((f) => (
           <div key={f.key} className="flex items-center justify-between px-4 py-2 text-xs">
             <span className="font-mono text-[#6e6e73]">{f.key}</span>
-            <span className="font-mono text-[#1d1d1f]">{f.secret ? '••••••••' : settingKeys.has(f.key) ? '(set)' : '—'}</span>
+            <span className="font-mono text-[#1d1d1f]">
+              {f.secret ? '••••••••' : settingKeys.has(f.key) ? '(set)' : '—'}
+            </span>
           </div>
         ))}
       </div>
@@ -91,27 +93,36 @@ function AddProviderForm({
   onCancel: () => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(provider.fields.map(f => [f.key, ''])),
+    Object.fromEntries(provider.fields.map((f) => [f.key, '']))
   );
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const missing = provider.fields.filter(f => !values[f.key]?.trim());
+    const missing = provider.fields.filter((f) => !values[f.key]?.trim());
     if (missing.length) {
-      alert(`Required: ${missing.map(f => f.label).join(', ')}`);
+      alert(`Required: ${missing.map((f) => f.label).join(', ')}`);
       return;
     }
     setSaving(true);
     try {
-      await onSave(provider.fields.map(f => ({ key: f.key, value: values[f.key], secret: f.secret })));
+      await onSave(
+        provider.fields.map((f) => ({
+          key: f.key,
+          value: values[f.key],
+          secret: f.secret,
+        }))
+      );
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-[#0071e3] bg-white p-4 space-y-3">
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-lg border border-[#0071e3] bg-white p-4 space-y-3"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-medium text-sm text-[#1d1d1f]">{provider.name}</p>
@@ -127,13 +138,13 @@ function AddProviderForm({
         </a>
       </div>
       <div className="space-y-2">
-        {provider.fields.map(f => (
+        {provider.fields.map((f) => (
           <div key={f.key}>
             <label className="mb-1 block text-xs text-[#6e6e73]">{f.label}</label>
             <input
               type={f.secret ? 'password' : 'text'}
               value={values[f.key]}
-              onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+              onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
               placeholder={f.placeholder}
               className="input-field w-full"
               autoComplete="off"
@@ -145,7 +156,9 @@ function AddProviderForm({
         <button type="submit" disabled={saving} className="btn btn-primary">
           {saving ? 'Saving…' : 'Connect'}
         </button>
-        <button type="button" onClick={onCancel} className="btn btn-secondary">Cancel</button>
+        <button type="button" onClick={onCancel} className="btn btn-secondary">
+          Cancel
+        </button>
       </div>
     </form>
   );
@@ -261,7 +274,9 @@ function CopilotDeviceFlow({
             <button onClick={startFlow} className="btn btn-primary">
               Login with GitHub
             </button>
-            <button onClick={onCancel} className="btn btn-secondary">Cancel</button>
+            <button onClick={onCancel} className="btn btn-secondary">
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -292,7 +307,13 @@ function CopilotDeviceFlow({
             <span className="inline-block size-3 animate-spin rounded-full border-2 border-[#0071e3] border-t-transparent" />
             Waiting for authorization...
           </div>
-          <button onClick={() => { stopPolling(); onCancel(); }} className="btn btn-secondary">
+          <button
+            onClick={() => {
+              stopPolling();
+              onCancel();
+            }}
+            className="btn btn-secondary"
+          >
             Cancel
           </button>
         </div>
@@ -309,8 +330,12 @@ function CopilotDeviceFlow({
         <div className="space-y-3">
           <p className="text-sm text-[#ff3b30]">{errorMsg}</p>
           <div className="flex gap-2">
-            <button onClick={startFlow} className="btn btn-primary">Try again</button>
-            <button onClick={onCancel} className="btn btn-secondary">Cancel</button>
+            <button onClick={startFlow} className="btn btn-primary">
+              Try again
+            </button>
+            <button onClick={onCancel} className="btn btn-secondary">
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -336,36 +361,37 @@ function ProviderPicker({
   const isSearching = q.length > 0;
 
   // All providers not already configured
-  const unconfigured = PROVIDERS.filter(
-    p => !p.fields.every(f => configured.has(f.key)),
-  );
+  const unconfigured = PROVIDERS.filter((p) => !p.fields.every((f) => configured.has(f.key)));
 
   // What to display: search results, "all", or just popular
   const visible = isSearching
     ? unconfigured.filter(
-        p =>
+        (p) =>
           p.name.toLowerCase().includes(q) ||
           p.description.toLowerCase().includes(q) ||
-          p.id.toLowerCase().includes(q),
+          p.id.toLowerCase().includes(q)
       )
     : showAll
       ? unconfigured
-      : unconfigured.filter(p => p.popular);
+      : unconfigured.filter((p) => p.popular);
 
-  const hiddenCount = unconfigured.length - unconfigured.filter(p => p.popular).length;
+  const hiddenCount = unconfigured.length - unconfigured.filter((p) => p.popular).length;
 
   return (
     <div className="space-y-3">
       <input
         type="search"
         value={query}
-        onChange={e => { setQuery(e.target.value); if (e.target.value) setShowAll(false); }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (e.target.value) setShowAll(false);
+        }}
         placeholder="Search all providers…"
         className="input-field w-full max-w-sm"
         autoFocus
       />
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {visible.map(p => (
+        {visible.map((p) => (
           <button
             key={p.id}
             onClick={() => onSelect(p)}
@@ -380,10 +406,7 @@ function ProviderPicker({
         )}
       </div>
       {!isSearching && !showAll && hiddenCount > 0 && (
-        <button
-          onClick={() => setShowAll(true)}
-          className="text-sm text-[#0071e3] hover:underline"
-        >
+        <button onClick={() => setShowAll(true)} className="text-sm text-[#0071e3] hover:underline">
           Show all providers ({hiddenCount} more)
         </button>
       )}
@@ -403,10 +426,7 @@ function ProviderPicker({
 // Main Settings page
 // ---------------------------------------------------------------------------
 
-type AddState =
-  | { step: 'idle' }
-  | { step: 'pick' }
-  | { step: 'form'; provider: Provider };
+type AddState = { step: 'idle' } | { step: 'pick' } | { step: 'form'; provider: Provider };
 
 export default function Settings() {
   const [settings, setSettings] = useState<Setting[]>([]);
@@ -421,37 +441,49 @@ export default function Settings() {
   const [modelsLoading, setModelsLoading] = useState(true);
 
   const load = useCallback(async () => {
-    try { setSettings(await api.getSettings()); setError(null); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Unknown error'); }
-    finally { setLoading(false); }
+    try {
+      setSettings(await api.getSettings());
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const loadModels = useCallback(async () => {
     try {
-      const [modelsRes, settingsRes] = await Promise.all([
-        api.getModels(),
-        api.getSettings(),
-      ]);
+      const [modelsRes, settingsRes] = await Promise.all([api.getModels(), api.getSettings()]);
       setAllModels(modelsRes.models || []);
-      const favSetting = settingsRes.find(s => s.key === FAVOURITE_MODELS_KEY);
+      const favSetting = settingsRes.find((s) => s.key === FAVOURITE_MODELS_KEY);
       if (favSetting && favSetting.value !== '***') {
-        try { setFavourites(JSON.parse(favSetting.value)); } catch { /* ignore */ }
+        try {
+          setFavourites(JSON.parse(favSetting.value));
+        } catch {
+          /* ignore */
+        }
       }
-    } catch { /* non-critical */ }
-    finally { setModelsLoading(false); }
+    } catch {
+      /* non-critical */
+    } finally {
+      setModelsLoading(false);
+    }
   }, []);
 
-  useEffect(() => { load(); loadModels(); }, [load, loadModels]);
+  useEffect(() => {
+    load();
+    loadModels();
+  }, [load, loadModels]);
 
-  const settingKeys = new Set(settings.map(s => s.key));
+  const settingKeys = new Set(settings.map((s) => s.key));
 
   // Which providers are fully or partially configured
-  const configuredProviders = PROVIDERS.filter(p =>
-    p.fields.some(f => settingKeys.has(f.key)),
-  );
+  const configuredProviders = PROVIDERS.filter((p) => p.fields.some((f) => settingKeys.has(f.key)));
 
   const handleProviderSave = async (fields: { key: string; value: string; secret: boolean }[]) => {
-    await Promise.all(fields.map(f => api.upsertSetting({ key: f.key, value: f.value, is_secret: f.secret })));
+    await Promise.all(
+      fields.map((f) => api.upsertSetting({ key: f.key, value: f.value, is_secret: f.secret }))
+    );
     setAddState({ step: 'idle' });
     load();
     // Re-fetch models — the new API key may unlock additional provider models
@@ -461,7 +493,7 @@ export default function Settings() {
 
   const handleProviderRemove = async (keys: string[]) => {
     if (!confirm(`Remove ${keys.join(', ')}?`)) return;
-    await Promise.all(keys.map(k => api.deleteSetting(k)));
+    await Promise.all(keys.map((k) => api.deleteSetting(k)));
     load();
     // Re-fetch models — removed keys may reduce available models
     setModelsLoading(true);
@@ -470,14 +502,18 @@ export default function Settings() {
 
   const toggleFavourite = async (model: string) => {
     const next = favourites.includes(model)
-      ? favourites.filter(m => m !== model)
+      ? favourites.filter((m) => m !== model)
       : [...favourites, model];
     setFavourites(next);
-    await api.upsertSetting({ key: FAVOURITE_MODELS_KEY, value: JSON.stringify(next), is_secret: false });
+    await api.upsertSetting({
+      key: FAVOURITE_MODELS_KEY,
+      value: JSON.stringify(next),
+      is_secret: false,
+    });
   };
 
   if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error)   return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
 
   return (
     <div className="space-y-10">
@@ -500,18 +536,12 @@ export default function Settings() {
             </p>
           </div>
           {addState.step === 'idle' && (
-            <button
-              onClick={() => setAddState({ step: 'pick' })}
-              className="btn btn-primary"
-            >
+            <button onClick={() => setAddState({ step: 'pick' })} className="btn btn-primary">
               Add provider
             </button>
           )}
           {addState.step !== 'idle' && (
-            <button
-              onClick={() => setAddState({ step: 'idle' })}
-              className="btn btn-secondary"
-            >
+            <button onClick={() => setAddState({ step: 'idle' })} className="btn btn-secondary">
               Cancel
             </button>
           )}
@@ -521,7 +551,7 @@ export default function Settings() {
         {addState.step === 'pick' && (
           <ProviderPicker
             configured={settingKeys}
-            onSelect={p => setAddState({ step: 'form', provider: p })}
+            onSelect={(p) => setAddState({ step: 'form', provider: p })}
           />
         )}
 
@@ -529,7 +559,12 @@ export default function Settings() {
         {addState.step === 'form' && addState.provider.authFlow === 'device' && (
           <CopilotDeviceFlow
             provider={addState.provider}
-            onDone={() => { setAddState({ step: 'idle' }); load(); setModelsLoading(true); loadModels(); }}
+            onDone={() => {
+              setAddState({ step: 'idle' });
+              load();
+              setModelsLoading(true);
+              loadModels();
+            }}
             onCancel={() => setAddState({ step: 'pick' })}
           />
         )}
@@ -544,7 +579,7 @@ export default function Settings() {
         {/* Configured list */}
         {configuredProviders.length > 0 ? (
           <div className="space-y-3">
-            {configuredProviders.map(p => (
+            {configuredProviders.map((p) => (
               <ConfiguredProviderCard
                 key={p.id}
                 provider={p}
@@ -575,7 +610,8 @@ export default function Settings() {
         <div>
           <h2 className="text-sm font-semibold text-[#1d1d1f]">Favourite models</h2>
           <p className="text-xs text-[#6e6e73] mt-0.5">
-            Favourite models appear first when selecting a model for a routine. Search by model name or provider.
+            Favourite models appear first when selecting a model for a routine. Search by model name
+            or provider.
           </p>
         </div>
 
@@ -583,14 +619,16 @@ export default function Settings() {
           <p className="text-sm text-[#6e6e73]">Loading models…</p>
         ) : allModels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#d1d1d6] px-4 py-8 text-center">
-            <p className="text-sm text-[#6e6e73]">No models available. Connect a provider first, then models will appear here.</p>
+            <p className="text-sm text-[#6e6e73]">
+              No models available. Connect a provider first, then models will appear here.
+            </p>
           </div>
         ) : (
           <>
             <input
               type="search"
               value={modelQuery}
-              onChange={e => setModelQuery(e.target.value)}
+              onChange={(e) => setModelQuery(e.target.value)}
               placeholder="Search by model name or provider..."
               className="input-field w-full max-w-sm"
             />
@@ -598,10 +636,15 @@ export default function Settings() {
             {/* Current favourites — always visible */}
             {favourites.length > 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">Favourites</p>
+                <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">
+                  Favourites
+                </p>
                 <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0]">
-                  {favourites.map(m => (
-                    <div key={m} className="flex items-center justify-between gap-4 px-4 py-2 bg-white first:rounded-t-lg last:rounded-b-lg">
+                  {favourites.map((m) => (
+                    <div
+                      key={m}
+                      className="flex items-center justify-between gap-4 px-4 py-2 bg-white first:rounded-t-lg last:rounded-b-lg"
+                    >
                       <ModelLabel id={m} />
                       <button
                         onClick={() => toggleFavourite(m)}
@@ -616,34 +659,42 @@ export default function Settings() {
             )}
 
             {/* Search results — only when typing */}
-            {modelQuery && (() => {
-              const q = modelQuery.toLowerCase();
-              // Exclude already-favourited models from search results to avoid confusion
-              const favSet = new Set(favourites);
-              const filtered = allModels.filter(m => m.toLowerCase().includes(q) && !favSet.has(m));
-              return filtered.length > 0 ? (
-                <div className="space-y-1">
-                  {favourites.length > 0 && (
-                    <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">All models</p>
-                  )}
-                  <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0] max-h-80 overflow-y-auto">
-                    {filtered.map(m => (
-                      <div key={m} className="flex items-center justify-between gap-4 px-4 py-2 bg-white first:rounded-t-lg last:rounded-b-lg">
-                        <ModelLabel id={m} />
-                        <button
-                          onClick={() => toggleFavourite(m)}
-                          className="shrink-0 text-xs text-[#0071e3] hover:underline"
+            {modelQuery &&
+              (() => {
+                const q = modelQuery.toLowerCase();
+                // Exclude already-favourited models from search results to avoid confusion
+                const favSet = new Set(favourites);
+                const filtered = allModels.filter(
+                  (m) => m.toLowerCase().includes(q) && !favSet.has(m)
+                );
+                return filtered.length > 0 ? (
+                  <div className="space-y-1">
+                    {favourites.length > 0 && (
+                      <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">
+                        All models
+                      </p>
+                    )}
+                    <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0] max-h-80 overflow-y-auto">
+                      {filtered.map((m) => (
+                        <div
+                          key={m}
+                          className="flex items-center justify-between gap-4 px-4 py-2 bg-white first:rounded-t-lg last:rounded-b-lg"
                         >
-                          Add
-                        </button>
-                      </div>
-                    ))}
+                          <ModelLabel id={m} />
+                          <button
+                            onClick={() => toggleFavourite(m)}
+                            className="shrink-0 text-xs text-[#0071e3] hover:underline"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-sm text-[#6e6e73]">No models matching "{modelQuery}".</p>
-              );
-            })()}
+                ) : (
+                  <p className="text-sm text-[#6e6e73]">No models matching "{modelQuery}".</p>
+                );
+              })()}
 
             {!modelQuery && favourites.length === 0 && (
               <p className="text-sm text-[#6e6e73]">

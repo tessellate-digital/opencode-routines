@@ -105,15 +105,20 @@ router.get('/poll', async (c) => {
   // Success — store the token in the settings table
   if (data.access_token) {
     const now = new Date().toISOString();
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO settings (key, value, is_secret, updated_at) VALUES (?, ?, 1, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, is_secret = 1, updated_at = excluded.updated_at
-    `).run('GITHUB_TOKEN', data.access_token, now);
+    `
+    ).run('GITHUB_TOKEN', data.access_token, now);
 
     return c.json({ status: 'success' });
   }
 
-  return c.json({ status: 'unknown', description: 'Unexpected response from GitHub' });
+  return c.json({
+    status: 'unknown',
+    description: 'Unexpected response from GitHub',
+  });
 });
 
 export default router;

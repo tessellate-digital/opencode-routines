@@ -1,5 +1,7 @@
 function dbPath(url: string): string {
-  if (url.startsWith('sqlite:///')) return url.slice('sqlite:///'.length);
+  if (url.startsWith('sqlite:///')) {
+    return url.slice('sqlite:///'.length);
+  }
   return url;
 }
 

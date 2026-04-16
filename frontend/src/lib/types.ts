@@ -23,7 +23,7 @@ export interface Routine {
 export interface Trigger {
   id: string;
   routine_id: string;
-  type: 'cron' | 'api' | 'github';
+  type: 'cron' | 'api' | 'github' | 'watcher';
   config: Record<string, unknown>;
   enabled: boolean;
   created_at: string;
@@ -37,7 +37,7 @@ export interface Run {
   trigger_type: string;
   prompt: string;
   parent_run_id: string | null;
-  status: 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+  status: 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'lost';
   started_at: string | null;
   finished_at: string | null;
   exit_code: number | null;
@@ -74,6 +74,9 @@ export interface FsResponse {
 export interface MountsResponse {
   mounts: string[];
 }
+
+// containerPath -> hostPath, pushed by the host agent
+export type HostMountsResponse = Record<string, string>;
 
 // SSE event types for global events stream
 export interface SSEEvent {

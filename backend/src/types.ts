@@ -31,6 +31,7 @@ export interface TriggerRow {
 export interface RunRow {
   id: string;
   routine_id: string | null;
+  routine_name: string;
   trigger_id: string | null;
   trigger_type: string;
   prompt: string;
@@ -83,7 +84,7 @@ export const RoutineUpdateSchema = z.object({
 });
 
 export const TriggerCreateSchema = z.object({
-  type: z.enum(['cron', 'api', 'github']),
+  type: z.enum(['cron', 'api', 'github', 'watcher']),
   config: z.record(z.unknown()).default({}),
   enabled: z.boolean().default(true),
 });

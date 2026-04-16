@@ -8,14 +8,20 @@ class SchedulerService {
   private tasks = new Map<string, cron.ScheduledTask>();
 
   start(): void {
-    const triggers = db.prepare(`
+    const triggers = db
+      .prepare(
+        `
       SELECT t.* FROM triggers t
       JOIN routines r ON r.id = t.routine_id
       WHERE t.type = 'cron' AND t.enabled = 1 AND r.enabled = 1
-    `).all() as TriggerRow[];
+    `
+      )
+      .all() as TriggerRow[];
 
     for (const trigger of triggers) {
-      const routine = db.prepare('SELECT * FROM routines WHERE id = ?').get(trigger.routine_id) as RoutineRow | undefined;
+      const routine = db.prepare('SELECT * FROM routines WHERE id = ?').get(trigger.routine_id) as
+        | RoutineRow
+        | undefined;
       if (routine) {
         try {
           this.registerTrigger(trigger, routine);
@@ -53,8 +59,8 @@ class SchedulerService {
     this.unregisterTrigger(trigger.id);
 
     const task = cron.schedule(expression, () => {
-      this.executeRoutine(routine.id, trigger.id).catch(err =>
-        console.error(`Cron execution error for trigger ${trigger.id}:`, err),
+      this.executeRoutine(routine.id, trigger.id).catch((err) =>
+        console.error(`Cron execution error for trigger ${trigger.id}:`, err)
       );
     });
 
@@ -76,17 +82,23 @@ class SchedulerService {
     const { executor } = await import('./executor');
     const { randomUUID } = await import('crypto');
 
-    const routine = db.prepare('SELECT * FROM routines WHERE id = ?').get(routineId) as RoutineRow | undefined;
-    if (!routine || !routine.enabled) return;
+    const routine = db.prepare('SELECT * FROM routines WHERE id = ?').get(routineId) as
+      | RoutineRow
+      | undefined;
+    if (!routine || !routine.enabled) {
+      return;
+    }
 
     // Pre-flight: skip if the workspace folder is no longer accessible
     if (routine.workspace_path) {
       try {
         const stat = fs.statSync(routine.workspace_path);
-        if (!stat.isDirectory()) throw new Error('not a directory');
+        if (!stat.isDirectory()) {
+          throw new Error('not a directory');
+        }
       } catch {
         console.warn(
-          `Skipping cron run for routine ${routineId}: workspace folder is no longer accessible: ${routine.workspace_path}`,
+          `Skipping cron run for routine ${routineId}: workspace folder is no longer accessible: ${routine.workspace_path}`
         );
         return;
       }
@@ -94,19 +106,23 @@ class SchedulerService {
 
     // If the routine is set to foreground-only, skip when no browser clients are connected
     if (routine.run_mode === 'foreground' && !eventBus.hasActiveClients) {
-      console.log(`Skipping cron run for routine ${routineId}: run_mode=foreground and no active clients`);
+      console.log(
+        `Skipping cron run for routine ${routineId}: run_mode=foreground and no active clients`
+      );
       return;
     }
 
     const runId = randomUUID();
-    db.prepare(`
-      INSERT INTO runs (id, routine_id, trigger_id, trigger_type, prompt, status, metadata, created_at)
-      VALUES (?, ?, ?, 'cron', ?, 'pending', '{}', ?)
-    `).run(runId, routine.id, triggerId, routine.prompt, new Date().toISOString());
+    db.prepare(
+      `
+      INSERT INTO runs (id, routine_id, routine_name, trigger_id, trigger_type, prompt, status, metadata, created_at)
+      VALUES (?, ?, ?, ?, 'cron', ?, 'pending', '{}', ?)
+    `
+    ).run(runId, routine.id, routine.name, triggerId, routine.prompt, new Date().toISOString());
 
-    executor.startRun(runId, routine, routine.prompt).catch(err =>
-      console.error(`Run ${runId} error:`, err),
-    );
+    executor
+      .startRun(runId, routine, routine.prompt)
+      .catch((err) => console.error(`Run ${runId} error:`, err));
   }
 }
 

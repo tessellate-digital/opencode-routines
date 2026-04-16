@@ -3,11 +3,12 @@ import type { Run } from '../lib/types';
 import { timeAgo, duration } from '../lib/utils';
 
 const statusStyle: Record<string, string> = {
-  pending:   'text-[#6e6e73]',
-  running:   'text-[#0071e3]',
-  success:   'text-[#34c759]',
-  failed:    'text-[#ff3b30]',
+  pending: 'text-[#6e6e73]',
+  running: 'text-[#0071e3]',
+  success: 'text-[#34c759]',
+  failed: 'text-[#ff3b30]',
   cancelled: 'text-[#ff9500]',
+  lost: 'text-[#86868b]',
 };
 
 export function StatusBadge({ status }: { status: string }) {
@@ -22,9 +23,7 @@ export function RunsTable({ runs }: { runs: Run[] }) {
   const navigate = useNavigate();
 
   if (!runs.length) {
-    return (
-      <p className="py-6 text-sm text-[#6e6e73]">No runs yet.</p>
-    );
+    return <p className="py-6 text-sm text-[#6e6e73]">No runs yet.</p>;
   }
 
   return (
@@ -47,12 +46,17 @@ export function RunsTable({ runs }: { runs: Run[] }) {
               className="cursor-pointer bg-white hover:bg-[#f5f5f7] outline-none focus-visible:bg-[#f5f5f7]"
               onClick={() => navigate(`/runs/${r.id}`)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/runs/${r.id}`); }
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(`/runs/${r.id}`);
+                }
               }}
             >
               <td className="px-4 py-3 font-medium text-[#1d1d1f]">{r.routine_name}</td>
               <td className="px-4 py-3 text-[#6e6e73] capitalize">{r.trigger_type}</td>
-              <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+              <td className="px-4 py-3">
+                <StatusBadge status={r.status} />
+              </td>
               <td className="px-4 py-3 text-[#6e6e73]">{duration(r.started_at, r.finished_at)}</td>
               <td className="px-4 py-3 text-[#6e6e73]">{timeAgo(r.started_at)}</td>
             </tr>

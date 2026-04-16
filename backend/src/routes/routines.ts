@@ -11,14 +11,23 @@ import type { RoutineRow, RunRow } from '../types';
 const router = new Hono();
 
 function routineToResponse(r: RoutineRow) {
-  const lastRun = db.prepare('SELECT status FROM runs WHERE routine_id = ? ORDER BY created_at DESC LIMIT 1').get(r.id) as Pick<RunRow, 'status'> | undefined;
-  const triggersCount = (db.prepare('SELECT COUNT(*) as count FROM triggers WHERE routine_id = ?').get(r.id) as { count: number }).count;
+  const lastRun = db
+    .prepare('SELECT status FROM runs WHERE routine_id = ? ORDER BY created_at DESC LIMIT 1')
+    .get(r.id) as Pick<RunRow, 'status'> | undefined;
+  const triggersCount = (
+    db.prepare('SELECT COUNT(*) as count FROM triggers WHERE routine_id = ?').get(r.id) as {
+      count: number;
+    }
+  ).count;
 
   // Check if workspace folder is still accessible (only when one is configured)
   let workspaceOk = true;
   if (r.workspace_path) {
-    try { workspaceOk = fs.statSync(r.workspace_path).isDirectory(); }
-    catch { workspaceOk = false; }
+    try {
+      workspaceOk = fs.statSync(r.workspace_path).isDirectory();
+    } catch {
+      workspaceOk = false;
+    }
   }
 
   return {
@@ -44,7 +53,7 @@ function routineToResponse(r: RoutineRow) {
 
 router.get('/', (c) => {
   const rows = db.prepare('SELECT * FROM routines ORDER BY created_at DESC').all() as RoutineRow[];
-  return c.json(rows.map(r => routineToResponse(r)));
+  return c.json(rows.map((r) => routineToResponse(r)));
 });
 
 router.post('/', zValidator('json', RoutineCreateSchema), (c) => {
@@ -52,10 +61,27 @@ router.post('/', zValidator('json', RoutineCreateSchema), (c) => {
   const now = new Date().toISOString();
   const id = randomUUID();
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO routines (id, name, description, prompt, model, repository, branch, agent, env_vars, enabled, run_mode, workspace_path, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, data.name, data.description, data.prompt, data.model, data.repository, data.branch, data.agent, JSON.stringify(data.env_vars), data.enabled ? 1 : 0, data.run_mode, data.workspace_path, now, now);
+  `
+  ).run(
+    id,
+    data.name,
+    data.description,
+    data.prompt,
+    data.model,
+    data.repository,
+    data.branch,
+    data.agent,
+    JSON.stringify(data.env_vars),
+    data.enabled ? 1 : 0,
+    data.run_mode,
+    data.workspace_path,
+    now,
+    now
+  );
 
   const row = db.prepare('SELECT * FROM routines WHERE id = ?').get(id) as RoutineRow;
   const response = routineToResponse(row);
@@ -64,31 +90,70 @@ router.post('/', zValidator('json', RoutineCreateSchema), (c) => {
 });
 
 router.get('/:id', (c) => {
-  const row = db.prepare('SELECT * FROM routines WHERE id = ?').get(c.req.param('id')) as RoutineRow | undefined;
-  if (!row) return c.json({ detail: 'Routine not found' }, 404);
+  const row = db.prepare('SELECT * FROM routines WHERE id = ?').get(c.req.param('id')) as
+    | RoutineRow
+    | undefined;
+  if (!row) {
+    return c.json({ detail: 'Routine not found' }, 404);
+  }
   return c.json(routineToResponse(row));
 });
 
 router.put('/:id', zValidator('json', RoutineUpdateSchema), (c) => {
   const id = c.req.param('id');
   const row = db.prepare('SELECT * FROM routines WHERE id = ?').get(id) as RoutineRow | undefined;
-  if (!row) return c.json({ detail: 'Routine not found' }, 404);
+  if (!row) {
+    return c.json({ detail: 'Routine not found' }, 404);
+  }
 
   const data = c.req.valid('json');
   const updates: string[] = [];
   const values: unknown[] = [];
 
-  if (data.name !== undefined) { updates.push('name = ?'); values.push(data.name); }
-  if (data.description !== undefined) { updates.push('description = ?'); values.push(data.description); }
-  if (data.prompt !== undefined) { updates.push('prompt = ?'); values.push(data.prompt); }
-  if (data.model !== undefined) { updates.push('model = ?'); values.push(data.model); }
-  if (data.repository !== undefined) { updates.push('repository = ?'); values.push(data.repository); }
-  if (data.branch !== undefined) { updates.push('branch = ?'); values.push(data.branch); }
-  if (data.agent !== undefined) { updates.push('agent = ?'); values.push(data.agent); }
-  if (data.env_vars !== undefined) { updates.push('env_vars = ?'); values.push(JSON.stringify(data.env_vars)); }
-  if (data.enabled !== undefined) { updates.push('enabled = ?'); values.push(data.enabled ? 1 : 0); }
-  if (data.run_mode !== undefined) { updates.push('run_mode = ?'); values.push(data.run_mode); }
-  if (data.workspace_path !== undefined) { updates.push('workspace_path = ?'); values.push(data.workspace_path); }
+  if (data.name !== undefined) {
+    updates.push('name = ?');
+    values.push(data.name);
+  }
+  if (data.description !== undefined) {
+    updates.push('description = ?');
+    values.push(data.description);
+  }
+  if (data.prompt !== undefined) {
+    updates.push('prompt = ?');
+    values.push(data.prompt);
+  }
+  if (data.model !== undefined) {
+    updates.push('model = ?');
+    values.push(data.model);
+  }
+  if (data.repository !== undefined) {
+    updates.push('repository = ?');
+    values.push(data.repository);
+  }
+  if (data.branch !== undefined) {
+    updates.push('branch = ?');
+    values.push(data.branch);
+  }
+  if (data.agent !== undefined) {
+    updates.push('agent = ?');
+    values.push(data.agent);
+  }
+  if (data.env_vars !== undefined) {
+    updates.push('env_vars = ?');
+    values.push(JSON.stringify(data.env_vars));
+  }
+  if (data.enabled !== undefined) {
+    updates.push('enabled = ?');
+    values.push(data.enabled ? 1 : 0);
+  }
+  if (data.run_mode !== undefined) {
+    updates.push('run_mode = ?');
+    values.push(data.run_mode);
+  }
+  if (data.workspace_path !== undefined) {
+    updates.push('workspace_path = ?');
+    values.push(data.workspace_path);
+  }
 
   if (updates.length > 0) {
     updates.push('updated_at = ?');
@@ -103,8 +168,12 @@ router.put('/:id', zValidator('json', RoutineUpdateSchema), (c) => {
 });
 
 router.delete('/:id', (c) => {
-  const row = db.prepare('SELECT * FROM routines WHERE id = ?').get(c.req.param('id')) as RoutineRow | undefined;
-  if (!row) return c.json({ detail: 'Routine not found' }, 404);
+  const row = db.prepare('SELECT * FROM routines WHERE id = ?').get(c.req.param('id')) as
+    | RoutineRow
+    | undefined;
+  if (!row) {
+    return c.json({ detail: 'Routine not found' }, 404);
+  }
   db.prepare('DELETE FROM routines WHERE id = ?').run(c.req.param('id'));
   eventBus.broadcast('routine_deleted', { routine_id: c.req.param('id') });
   return new Response(null, { status: 204 });
@@ -113,17 +182,24 @@ router.delete('/:id', (c) => {
 router.post('/:id/run', zValidator('json', RunTriggerSchema.partial()), async (c) => {
   const id = c.req.param('id');
   const row = db.prepare('SELECT * FROM routines WHERE id = ?').get(id) as RoutineRow | undefined;
-  if (!row) return c.json({ detail: 'Routine not found' }, 404);
+  if (!row) {
+    return c.json({ detail: 'Routine not found' }, 404);
+  }
 
   // Pre-flight: check workspace folder is still accessible
   if (row.workspace_path) {
     try {
       const stat = fs.statSync(row.workspace_path);
-      if (!stat.isDirectory()) throw new Error('not a directory');
+      if (!stat.isDirectory()) {
+        throw new Error('not a directory');
+      }
     } catch {
-      return c.json({
-        detail: `Workspace folder is no longer accessible: ${row.workspace_path}. Check your docker-compose.yml volumes and restart the container.`,
-      }, 409);
+      return c.json(
+        {
+          detail: `Workspace folder is no longer accessible: ${row.workspace_path}. Check your docker-compose.yml volumes and restart the container.`,
+        },
+        409
+      );
     }
   }
 
@@ -133,14 +209,20 @@ router.post('/:id/run', zValidator('json', RunTriggerSchema.partial()), async (c
   const now = new Date().toISOString();
   const prompt = text ? `${row.prompt}\n\nAdditional context:\n${text}` : row.prompt;
 
-  db.prepare(`
-    INSERT INTO runs (id, routine_id, trigger_type, prompt, status, metadata, created_at)
-    VALUES (?, ?, 'manual', ?, 'pending', ?, ?)
-  `).run(runId, row.id, prompt, JSON.stringify(text ? { text } : {}), now);
+  db.prepare(
+    `
+    INSERT INTO runs (id, routine_id, routine_name, trigger_type, prompt, status, metadata, created_at)
+    VALUES (?, ?, ?, 'manual', ?, 'pending', ?, ?)
+  `
+  ).run(runId, row.id, row.name, prompt, JSON.stringify(text ? { text } : {}), now);
 
-  eventBus.broadcast('run_created', { run_id: runId, routine_id: row.id, status: 'pending' });
+  eventBus.broadcast('run_created', {
+    run_id: runId,
+    routine_id: row.id,
+    status: 'pending',
+  });
 
-  executor.startRun(runId, row, prompt).catch(err => console.error(`Run ${runId} error:`, err));
+  executor.startRun(runId, row, prompt).catch((err) => console.error(`Run ${runId} error:`, err));
 
   return c.json({ run_id: runId }, 202);
 });

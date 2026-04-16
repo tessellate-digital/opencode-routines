@@ -5,9 +5,7 @@ services:
       dockerfile: backend/Dockerfile
     volumes:
       - db-data:/data
-      # Bind-mount local folders here to make them available in the folder picker.
-      # Each entry becomes a selectable workspace in the UI.
-      # Example: - /absolute/path/on/host:/workspaces/my-project
+      - /Users/loicmarcos/personal-dev/notion-agent-hive:/workspaces/user-data/code
     environment:
       - DATABASE_URL=sqlite:////data/routines.db
       - WORKSPACES_DIR=/workspaces/user-data
@@ -17,8 +15,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_DEV=${VITE_DEV:-}
     ports:
-      - "8080:80"
+      - '8080:80'
     depends_on:
       - backend
     restart: unless-stopped

@@ -1,4 +1,13 @@
-import type { Routine, Run, Trigger, Setting, ModelsResponse, FsResponse, MountsResponse } from './types';
+import type {
+  Routine,
+  Run,
+  Trigger,
+  Setting,
+  ModelsResponse,
+  FsResponse,
+  MountsResponse,
+  HostMountsResponse,
+} from './types';
 
 const BASE = '/api';
 
@@ -23,13 +32,21 @@ export const api = {
   getRoutines: () => request<Routine[]>('/routines'),
   getRoutine: (id: string) => request<Routine>(`/routines/${id}`),
   createRoutine: (data: Partial<Routine>) =>
-    request<Routine>('/routines', { method: 'POST', body: JSON.stringify(data) }),
+    request<Routine>('/routines', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   updateRoutine: (id: string, data: Partial<Routine>) =>
-    request<Routine>(`/routines/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    request<Routine>(`/routines/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   toggleRoutine: (id: string, enabled: boolean) =>
-    request<Routine>(`/routines/${id}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
-  deleteRoutine: (id: string) =>
-    request<void>(`/routines/${id}`, { method: 'DELETE' }),
+    request<Routine>(`/routines/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }),
+  deleteRoutine: (id: string) => request<void>(`/routines/${id}`, { method: 'DELETE' }),
   runRoutine: (id: string, text?: string) =>
     request<{ run_id: string }>(`/routines/${id}/run`, {
       method: 'POST',
@@ -37,8 +54,7 @@ export const api = {
     }),
 
   // Triggers
-  getTriggers: (routineId: string) =>
-    request<Trigger[]>(`/routines/${routineId}/triggers`),
+  getTriggers: (routineId: string) => request<Trigger[]>(`/routines/${routineId}/triggers`),
   createTrigger: (routineId: string, data: { type: string; config: Record<string, unknown> }) =>
     request<Trigger>(`/routines/${routineId}/triggers`, {
       method: 'POST',
@@ -48,25 +64,35 @@ export const api = {
     request<void>(`/triggers/${triggerId}`, { method: 'DELETE' }),
 
   // Runs
-  getRuns: (params?: { routine_id?: string; status?: string; limit?: number }) => {
+  getRuns: (params?: { routine_id?: string; status?: string; limit?: number; offset?: number }) => {
     const sp = new URLSearchParams();
     if (params?.routine_id) sp.set('routine_id', params.routine_id);
     if (params?.status) sp.set('status', params.status);
     if (params?.limit) sp.set('limit', String(params.limit));
+    if (params?.offset) sp.set('offset', String(params.offset));
     const qs = sp.toString();
     return request<Run[]>(`/runs${qs ? `?${qs}` : ''}`);
   },
   getRun: (id: string) => request<Run>(`/runs/${id}`),
   getThread: (id: string) => request<Run[]>(`/runs/${id}/thread`),
   cancelRun: (id: string) =>
-    request<{ status: string }>(`/runs/${id}/cancel`, { method: 'POST', body: '{}' }),
+    request<{ status: string }>(`/runs/${id}/cancel`, {
+      method: 'POST',
+      body: '{}',
+    }),
   replyToRun: (id: string, text: string) =>
-    request<{ run_id: string }>(`/runs/${id}/reply`, { method: 'POST', body: JSON.stringify({ text }) }),
+    request<{ run_id: string }>(`/runs/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
 
   // Settings
   getSettings: () => request<Setting[]>('/settings'),
   upsertSetting: (data: { key: string; value: string; is_secret: boolean }) =>
-    request<Setting>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
+    request<Setting>('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   deleteSetting: (key: string) =>
     request<void>(`/settings/${encodeURIComponent(key)}`, { method: 'DELETE' }),
 
@@ -75,6 +101,8 @@ export const api = {
 
   // Filesystem browser
   getMounts: () => request<MountsResponse>('/fs/mounts'),
+  getHostMounts: () =>
+    request<HostMountsResponse>('/host-mounts').catch(() => ({}) as HostMountsResponse),
   browseFs: (dirPath: string) => {
     return request<FsResponse>(`/fs?path=${encodeURIComponent(dirPath)}`);
   },
@@ -90,5 +118,7 @@ export const api = {
     }>('/auth/github-copilot/device-code', { method: 'POST', body: '{}' }),
 
   copilotPoll: (deviceCode: string) =>
-    request<{ status: string; description?: string }>(`/auth/github-copilot/poll?device_code=${encodeURIComponent(deviceCode)}`),
+    request<{ status: string; description?: string }>(
+      `/auth/github-copilot/poll?device_code=${encodeURIComponent(deviceCode)}`
+    ),
 };

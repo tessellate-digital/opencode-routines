@@ -67,7 +67,9 @@ export function useRunStream(
     onStderr?: (data: string) => void;
     onStdout?: (data: string) => void;
     onDone?: (data: string) => void;
-  },
+    /** Called when the stream cannot be opened (e.g. 404 / no active stream). */
+    onStreamError?: () => void;
+  }
 ) {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
@@ -102,6 +104,7 @@ export function useRunStream(
 
     es.onerror = () => {
       es.close();
+      handlersRef.current.onStreamError?.();
     };
 
     return () => {
