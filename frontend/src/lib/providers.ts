@@ -4,8 +4,8 @@
 // stored as a Setting is used to detect whether the provider is configured.
 
 export interface ProviderField {
-  key: string;       // the env var / settings key
-  label: string;     // human label
+  key: string; // the env var / settings key
+  label: string; // human label
   placeholder: string;
   secret: boolean;
 }
@@ -34,7 +34,12 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#opencode-zen',
     popular: true,
     fields: [
-      { key: 'OPENCODE_API_KEY', label: 'API key', placeholder: 'sk-…', secret: true },
+      {
+        key: 'OPENCODE_API_KEY',
+        label: 'API key',
+        placeholder: 'sk-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -44,7 +49,12 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#anthropic',
     popular: true,
     fields: [
-      { key: 'ANTHROPIC_API_KEY', label: 'API key', placeholder: 'sk-ant-…', secret: true },
+      {
+        key: 'ANTHROPIC_API_KEY',
+        label: 'API key',
+        placeholder: 'sk-ant-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -54,7 +64,12 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#openai',
     popular: true,
     fields: [
-      { key: 'OPENAI_API_KEY', label: 'API key', placeholder: 'sk-…', secret: true },
+      {
+        key: 'OPENAI_API_KEY',
+        label: 'API key',
+        placeholder: 'sk-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -65,7 +80,12 @@ const POPULAR: Provider[] = [
     popular: true,
     authFlow: 'device',
     fields: [
-      { key: 'GITHUB_TOKEN', label: 'GitHub token', placeholder: 'gho_…', secret: true },
+      {
+        key: 'GITHUB_TOKEN',
+        label: 'GitHub token',
+        placeholder: 'gho_…',
+        secret: true,
+      },
     ],
   },
   {
@@ -75,7 +95,12 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#openrouter',
     popular: true,
     fields: [
-      { key: 'OPENROUTER_API_KEY', label: 'API key', placeholder: 'sk-or-…', secret: true },
+      {
+        key: 'OPENROUTER_API_KEY',
+        label: 'API key',
+        placeholder: 'sk-or-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -85,8 +110,18 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#google-vertex-ai',
     popular: true,
     fields: [
-      { key: 'GOOGLE_CLOUD_PROJECT', label: 'GCloud project ID', placeholder: 'my-project-123', secret: false },
-      { key: 'GOOGLE_APPLICATION_CREDENTIALS', label: 'Service account JSON path', placeholder: '/path/to/key.json', secret: false },
+      {
+        key: 'GOOGLE_CLOUD_PROJECT',
+        label: 'GCloud project ID',
+        placeholder: 'my-project-123',
+        secret: false,
+      },
+      {
+        key: 'GOOGLE_APPLICATION_CREDENTIALS',
+        label: 'Service account JSON path',
+        placeholder: '/path/to/key.json',
+        secret: false,
+      },
     ],
   },
   {
@@ -96,9 +131,24 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#amazon-bedrock',
     popular: true,
     fields: [
-      { key: 'AWS_ACCESS_KEY_ID', label: 'AWS access key ID', placeholder: 'AKIA…', secret: false },
-      { key: 'AWS_SECRET_ACCESS_KEY', label: 'AWS secret access key', placeholder: '…', secret: true },
-      { key: 'AWS_REGION', label: 'AWS region', placeholder: 'us-east-1', secret: false },
+      {
+        key: 'AWS_ACCESS_KEY_ID',
+        label: 'AWS access key ID',
+        placeholder: 'AKIA…',
+        secret: false,
+      },
+      {
+        key: 'AWS_SECRET_ACCESS_KEY',
+        label: 'AWS secret access key',
+        placeholder: '…',
+        secret: true,
+      },
+      {
+        key: 'AWS_REGION',
+        label: 'AWS region',
+        placeholder: 'us-east-1',
+        secret: false,
+      },
     ],
   },
   {
@@ -108,7 +158,12 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#deepseek',
     popular: true,
     fields: [
-      { key: 'DEEPSEEK_API_KEY', label: 'API key', placeholder: 'sk-…', secret: true },
+      {
+        key: 'DEEPSEEK_API_KEY',
+        label: 'API key',
+        placeholder: 'sk-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -118,7 +173,12 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#groq',
     popular: true,
     fields: [
-      { key: 'GROQ_API_KEY', label: 'API key', placeholder: 'gsk_…', secret: true },
+      {
+        key: 'GROQ_API_KEY',
+        label: 'API key',
+        placeholder: 'gsk_…',
+        secret: true,
+      },
     ],
   },
   {
@@ -128,7 +188,12 @@ const POPULAR: Provider[] = [
     docsUrl: 'https://opencode.ai/docs/providers#ollama',
     popular: true,
     fields: [
-      { key: 'OLLAMA_BASE_URL', label: 'Base URL', placeholder: 'http://localhost:11434/v1', secret: false },
+      {
+        key: 'OLLAMA_BASE_URL',
+        label: 'Base URL',
+        placeholder: 'http://localhost:11434/v1',
+        secret: false,
+      },
     ],
   },
 ];
@@ -144,7 +209,12 @@ const OTHER: Provider[] = [
     description: 'Chinese AI cloud platform with multiple models.',
     docsUrl: 'https://opencode.ai/docs/providers#302ai',
     fields: [
-      { key: '302AI_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: '302AI_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -153,8 +223,18 @@ const OTHER: Provider[] = [
     description: 'OpenAI models hosted on Microsoft Azure.',
     docsUrl: 'https://opencode.ai/docs/providers#azure-openai',
     fields: [
-      { key: 'AZURE_OPENAI_API_KEY', label: 'API key', placeholder: '…', secret: true },
-      { key: 'AZURE_RESOURCE_NAME', label: 'Resource name', placeholder: 'my-resource', secret: false },
+      {
+        key: 'AZURE_OPENAI_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
+      {
+        key: 'AZURE_RESOURCE_NAME',
+        label: 'Resource name',
+        placeholder: 'my-resource',
+        secret: false,
+      },
     ],
   },
   {
@@ -163,8 +243,18 @@ const OTHER: Provider[] = [
     description: 'OpenAI models via Azure Cognitive Services endpoint.',
     docsUrl: 'https://opencode.ai/docs/providers#azure-cognitive-services',
     fields: [
-      { key: 'AZURE_COGNITIVE_SERVICES_API_KEY', label: 'API key', placeholder: '…', secret: true },
-      { key: 'AZURE_COGNITIVE_SERVICES_RESOURCE_NAME', label: 'Resource name', placeholder: 'my-resource', secret: false },
+      {
+        key: 'AZURE_COGNITIVE_SERVICES_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
+      {
+        key: 'AZURE_COGNITIVE_SERVICES_RESOURCE_NAME',
+        label: 'Resource name',
+        placeholder: 'my-resource',
+        secret: false,
+      },
     ],
   },
   {
@@ -173,7 +263,12 @@ const OTHER: Provider[] = [
     description: 'Deploy and run ML models with Baseten.',
     docsUrl: 'https://opencode.ai/docs/providers#baseten',
     fields: [
-      { key: 'BASETEN_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'BASETEN_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -182,7 +277,12 @@ const OTHER: Provider[] = [
     description: 'Wafer-scale chip inference, Llama and Qwen.',
     docsUrl: 'https://opencode.ai/docs/providers#cerebras',
     fields: [
-      { key: 'CEREBRAS_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'CEREBRAS_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -191,9 +291,24 @@ const OTHER: Provider[] = [
     description: 'Unified endpoint for multiple AI providers via Cloudflare.',
     docsUrl: 'https://opencode.ai/docs/providers#cloudflare-ai-gateway',
     fields: [
-      { key: 'CLOUDFLARE_ACCOUNT_ID', label: 'Account ID', placeholder: '…', secret: false },
-      { key: 'CLOUDFLARE_GATEWAY_ID', label: 'Gateway ID', placeholder: '…', secret: false },
-      { key: 'CLOUDFLARE_API_TOKEN', label: 'API token', placeholder: '…', secret: true },
+      {
+        key: 'CLOUDFLARE_ACCOUNT_ID',
+        label: 'Account ID',
+        placeholder: '…',
+        secret: false,
+      },
+      {
+        key: 'CLOUDFLARE_GATEWAY_ID',
+        label: 'Gateway ID',
+        placeholder: '…',
+        secret: false,
+      },
+      {
+        key: 'CLOUDFLARE_API_TOKEN',
+        label: 'API token',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -202,8 +317,18 @@ const OTHER: Provider[] = [
     description: 'Run AI models on Cloudflare global network.',
     docsUrl: 'https://opencode.ai/docs/providers#cloudflare-workers-ai',
     fields: [
-      { key: 'CLOUDFLARE_ACCOUNT_ID', label: 'Account ID', placeholder: '…', secret: false },
-      { key: 'CLOUDFLARE_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'CLOUDFLARE_ACCOUNT_ID',
+        label: 'Account ID',
+        placeholder: '…',
+        secret: false,
+      },
+      {
+        key: 'CLOUDFLARE_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -212,7 +337,12 @@ const OTHER: Provider[] = [
     description: 'Cortecs AI inference platform.',
     docsUrl: 'https://opencode.ai/docs/providers#cortecs',
     fields: [
-      { key: 'CORTECS_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'CORTECS_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -221,7 +351,12 @@ const OTHER: Provider[] = [
     description: 'Serverless inference for open-source models.',
     docsUrl: 'https://opencode.ai/docs/providers#deep-infra',
     fields: [
-      { key: 'DEEPINFRA_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'DEEPINFRA_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -230,7 +365,12 @@ const OTHER: Provider[] = [
     description: 'Fast inference for open models.',
     docsUrl: 'https://opencode.ai/docs/providers#fireworks-ai',
     fields: [
-      { key: 'FIREWORKS_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'FIREWORKS_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -239,7 +379,12 @@ const OTHER: Provider[] = [
     description: 'Firmware AI model hosting.',
     docsUrl: 'https://opencode.ai/docs/providers#firmware',
     fields: [
-      { key: 'FIRMWARE_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'FIRMWARE_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -248,7 +393,12 @@ const OTHER: Provider[] = [
     description: 'AI features from your GitLab subscription.',
     docsUrl: 'https://opencode.ai/docs/providers#gitlab-duo',
     fields: [
-      { key: 'GITLAB_TOKEN', label: 'Personal access token', placeholder: 'glpat-…', secret: true },
+      {
+        key: 'GITLAB_TOKEN',
+        label: 'Personal access token',
+        placeholder: 'glpat-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -257,7 +407,12 @@ const OTHER: Provider[] = [
     description: 'LLM observability gateway with logging and analytics.',
     docsUrl: 'https://opencode.ai/docs/providers#helicone',
     fields: [
-      { key: 'HELICONE_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'HELICONE_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -266,7 +421,12 @@ const OTHER: Provider[] = [
     description: 'Access open models via Hugging Face Inference Providers.',
     docsUrl: 'https://opencode.ai/docs/providers#hugging-face',
     fields: [
-      { key: 'HUGGINGFACE_API_KEY', label: 'API token', placeholder: 'hf_…', secret: true },
+      {
+        key: 'HUGGINGFACE_API_KEY',
+        label: 'API token',
+        placeholder: 'hf_…',
+        secret: true,
+      },
     ],
   },
   {
@@ -275,7 +435,12 @@ const OTHER: Provider[] = [
     description: 'Decentralised GPU compute for AI inference.',
     docsUrl: 'https://opencode.ai/docs/providers#ionet',
     fields: [
-      { key: 'IONET_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'IONET_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -284,7 +449,12 @@ const OTHER: Provider[] = [
     description: 'MiniMax M2 and other models.',
     docsUrl: 'https://opencode.ai/docs/providers#minimax',
     fields: [
-      { key: 'MINIMAX_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'MINIMAX_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -293,7 +463,12 @@ const OTHER: Provider[] = [
     description: 'Kimi K2 and other Moonshot models.',
     docsUrl: 'https://opencode.ai/docs/providers#moonshot-ai',
     fields: [
-      { key: 'MOONSHOT_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'MOONSHOT_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -302,7 +477,12 @@ const OTHER: Provider[] = [
     description: 'European AI inference with Nebius Token Factory.',
     docsUrl: 'https://opencode.ai/docs/providers#nebius-token-factory',
     fields: [
-      { key: 'NEBIUS_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'NEBIUS_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -311,7 +491,12 @@ const OTHER: Provider[] = [
     description: 'Nvidia NIM inference microservices.',
     docsUrl: 'https://opencode.ai/docs/providers',
     fields: [
-      { key: 'NVIDIA_API_KEY', label: 'API key', placeholder: 'nvapi-…', secret: true },
+      {
+        key: 'NVIDIA_API_KEY',
+        label: 'API key',
+        placeholder: 'nvapi-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -320,7 +505,12 @@ const OTHER: Provider[] = [
     description: 'Cloud-hosted Ollama models.',
     docsUrl: 'https://opencode.ai/docs/providers#ollama-cloud',
     fields: [
-      { key: 'OLLAMA_CLOUD_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'OLLAMA_CLOUD_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -329,7 +519,12 @@ const OTHER: Provider[] = [
     description: 'European cloud AI endpoints from OVHcloud.',
     docsUrl: 'https://opencode.ai/docs/providers#ovhcloud-ai-endpoints',
     fields: [
-      { key: 'OVHCLOUD_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'OVHCLOUD_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -338,7 +533,12 @@ const OTHER: Provider[] = [
     description: 'Access 40+ models through SAP AI Core.',
     docsUrl: 'https://opencode.ai/docs/providers#sap-ai-core',
     fields: [
-      { key: 'AICORE_SERVICE_KEY', label: 'Service key (JSON)', placeholder: '{"clientid":"…", …}', secret: true },
+      {
+        key: 'AICORE_SERVICE_KEY',
+        label: 'Service key (JSON)',
+        placeholder: '{"clientid":"…", …}',
+        secret: true,
+      },
     ],
   },
   {
@@ -347,7 +547,12 @@ const OTHER: Provider[] = [
     description: 'European cloud inference via Scaleway Generative APIs.',
     docsUrl: 'https://opencode.ai/docs/providers#scaleway',
     fields: [
-      { key: 'SCALEWAY_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'SCALEWAY_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -356,7 +561,12 @@ const OTHER: Provider[] = [
     description: 'Sovereign AI hosting on European infrastructure.',
     docsUrl: 'https://opencode.ai/docs/providers#stackit',
     fields: [
-      { key: 'STACKIT_API_KEY', label: 'Auth token', placeholder: '…', secret: true },
+      {
+        key: 'STACKIT_API_KEY',
+        label: 'Auth token',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -365,7 +575,12 @@ const OTHER: Provider[] = [
     description: 'StepFun AI models.',
     docsUrl: 'https://opencode.ai/docs/providers',
     fields: [
-      { key: 'STEPFUN_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'STEPFUN_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -374,7 +589,12 @@ const OTHER: Provider[] = [
     description: 'Open-source model hosting at scale.',
     docsUrl: 'https://opencode.ai/docs/providers#together-ai',
     fields: [
-      { key: 'TOGETHER_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'TOGETHER_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -383,7 +603,12 @@ const OTHER: Provider[] = [
     description: 'Privacy-focused AI inference.',
     docsUrl: 'https://opencode.ai/docs/providers#venice-ai',
     fields: [
-      { key: 'VENICE_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'VENICE_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -392,7 +617,12 @@ const OTHER: Provider[] = [
     description: 'Access models from multiple providers through Vercel.',
     docsUrl: 'https://opencode.ai/docs/providers#vercel-ai-gateway',
     fields: [
-      { key: 'VERCEL_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'VERCEL_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -401,7 +631,12 @@ const OTHER: Provider[] = [
     description: 'Grok models from xAI.',
     docsUrl: 'https://opencode.ai/docs/providers#xai',
     fields: [
-      { key: 'XAI_API_KEY', label: 'API key', placeholder: 'xai-…', secret: true },
+      {
+        key: 'XAI_API_KEY',
+        label: 'API key',
+        placeholder: 'xai-…',
+        secret: true,
+      },
     ],
   },
   {
@@ -409,9 +644,7 @@ const OTHER: Provider[] = [
     name: 'Z.AI',
     description: 'GLM-4 and other Z.AI models.',
     docsUrl: 'https://opencode.ai/docs/providers#zai',
-    fields: [
-      { key: 'ZAI_API_KEY', label: 'API key', placeholder: '…', secret: true },
-    ],
+    fields: [{ key: 'ZAI_API_KEY', label: 'API key', placeholder: '…', secret: true }],
   },
   {
     id: 'zenmux',
@@ -419,7 +652,12 @@ const OTHER: Provider[] = [
     description: 'AI model router and gateway.',
     docsUrl: 'https://opencode.ai/docs/providers#zenmux',
     fields: [
-      { key: 'ZENMUX_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'ZENMUX_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -428,7 +666,12 @@ const OTHER: Provider[] = [
     description: 'Kimi K2 coding-optimised models.',
     docsUrl: 'https://opencode.ai/docs/providers',
     fields: [
-      { key: 'KIMI_FOR_CODING_API_KEY', label: 'API key', placeholder: '…', secret: true },
+      {
+        key: 'KIMI_FOR_CODING_API_KEY',
+        label: 'API key',
+        placeholder: '…',
+        secret: true,
+      },
     ],
   },
   {
@@ -437,7 +680,12 @@ const OTHER: Provider[] = [
     description: 'Low-cost subscription for popular open coding models.',
     docsUrl: 'https://opencode.ai/docs/providers#opencode-go',
     fields: [
-      { key: 'OPENCODE_API_KEY', label: 'API key', placeholder: 'sk-…', secret: true },
+      {
+        key: 'OPENCODE_API_KEY',
+        label: 'API key',
+        placeholder: 'sk-…',
+        secret: true,
+      },
     ],
   },
 ];

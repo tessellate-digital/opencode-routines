@@ -7,6 +7,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+ARG VITE_DEV
 RUN npm run build
 
 # Serve stage

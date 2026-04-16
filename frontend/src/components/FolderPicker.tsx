@@ -24,7 +24,13 @@ interface FolderPickerProps {
 type Phase =
   | { state: 'loading' }
   | { state: 'no-mounts' }
-  | { state: 'browsing'; currentPath: string; mountRoot: string; parent: string | null; entries: FsEntry[] }
+  | {
+      state: 'browsing';
+      currentPath: string;
+      mountRoot: string;
+      parent: string | null;
+      entries: FsEntry[];
+    }
   | { state: 'error'; message: string };
 
 export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
@@ -40,7 +46,9 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
           return;
         }
         // If we have a saved value that lives inside a known mount, open it directly
-        const savedMount = value ? mounts.find(m => value === m || value.startsWith(m + '/')) : undefined;
+        const savedMount = value
+          ? mounts.find((m) => value === m || value.startsWith(m + '/'))
+          : undefined;
         if (savedMount) {
           await browse(value);
         } else {
@@ -49,11 +57,14 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
           await browse(root);
         }
       } catch (e) {
-        setPhase({ state: 'error', message: e instanceof Error ? e.message : 'Failed to load' });
+        setPhase({
+          state: 'error',
+          message: e instanceof Error ? e.message : 'Failed to load',
+        });
       }
     }
     init();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function browse(dir: string) {
@@ -68,7 +79,10 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
         entries: res.entries,
       });
     } catch (e) {
-      setPhase({ state: 'error', message: e instanceof Error ? e.message : 'Failed to read directory' });
+      setPhase({
+        state: 'error',
+        message: e instanceof Error ? e.message : 'Failed to read directory',
+      });
     }
   }
 
@@ -92,10 +106,11 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="w-full max-w-lg rounded-xl border border-[#d1d1d6] bg-white shadow-xl flex flex-col max-h-[70vh]">
-
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#d1d1d6]">
           <span className="text-sm font-semibold text-[#1d1d1f]">Select folder</span>
@@ -109,36 +124,46 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
         </div>
 
         {/* Breadcrumb — only shown while browsing */}
-        {phase.state === 'browsing' && (() => {
-          const { mountName, segments } = breadcrumbs(phase.currentPath, phase.mountRoot);
-          return (
-            <div className="flex items-center gap-0.5 px-4 py-2 text-xs text-[#6e6e73] flex-wrap border-b border-[#f0f0f0]">
-              <button
-                onClick={() => browse(phase.mountRoot)}
-                className={segments.length === 0 ? 'font-medium text-[#1d1d1f]' : 'hover:text-[#0071e3] hover:underline'}
-              >
-                {mountName}
-              </button>
-              {segments.map((seg, idx) => (
-                <span key={idx} className="flex items-center gap-0.5">
-                  <span className="text-[#d1d1d6]">/</span>
-                  <button
-                    onClick={() => browse(segmentPath(phase.mountRoot, segments, idx))}
-                    className={idx === segments.length - 1 ? 'font-medium text-[#1d1d1f]' : 'hover:text-[#0071e3] hover:underline'}
-                  >
-                    {seg}
-                  </button>
-                </span>
-              ))}
-            </div>
-          );
-        })()}
+        {phase.state === 'browsing' &&
+          (() => {
+            const { mountName, segments } = breadcrumbs(phase.currentPath, phase.mountRoot);
+            return (
+              <div className="flex items-center gap-0.5 px-4 py-2 text-xs text-[#6e6e73] flex-wrap border-b border-[#f0f0f0]">
+                <button
+                  onClick={() => browse(phase.mountRoot)}
+                  className={
+                    segments.length === 0
+                      ? 'font-medium text-[#1d1d1f]'
+                      : 'hover:text-[#0071e3] hover:underline'
+                  }
+                >
+                  {mountName}
+                </button>
+                {segments.map((seg, idx) => (
+                  <span key={idx} className="flex items-center gap-0.5">
+                    <span className="text-[#d1d1d6]">/</span>
+                    <button
+                      onClick={() => browse(segmentPath(phase.mountRoot, segments, idx))}
+                      className={
+                        idx === segments.length - 1
+                          ? 'font-medium text-[#1d1d1f]'
+                          : 'hover:text-[#0071e3] hover:underline'
+                      }
+                    >
+                      {seg}
+                    </button>
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto min-h-0">
-
           {phase.state === 'loading' && (
-            <div className="flex items-center justify-center py-12 text-sm text-[#6e6e73]">Loading…</div>
+            <div className="flex items-center justify-center py-12 text-sm text-[#6e6e73]">
+              Loading…
+            </div>
           )}
 
           {phase.state === 'error' && (
@@ -153,7 +178,7 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
                 <span className="font-mono">docker-compose.yml</span>, then restart:
               </p>
               <pre className="inline-block rounded-lg bg-[#f5f5f7] border border-[#e5e5ea] px-4 py-3 text-left text-xs font-mono text-[#1d1d1f] whitespace-pre">
-{`volumes:
+                {`volumes:
   - /your/local/path:/workspaces/my-project`}
               </pre>
             </div>
@@ -198,10 +223,15 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
             </p>
           )}
           <div className="flex gap-2 justify-end">
-            <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+            <button onClick={onClose} className="btn btn-secondary">
+              Cancel
+            </button>
             {isBrowsing && (
               <button
-                onClick={() => { onChange(currentPath); onClose(); }}
+                onClick={() => {
+                  onChange(currentPath);
+                  onClose();
+                }}
                 className="btn btn-primary"
               >
                 Select this folder

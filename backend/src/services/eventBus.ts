@@ -28,9 +28,13 @@ class EventBus {
     return {
       clientId: id,
       next: () => {
-        if (client.closed) return Promise.resolve(null);
+        if (client.closed) {
+          return Promise.resolve(null);
+        }
         const item = client.queue.shift();
-        if (item) return Promise.resolve(item);
+        if (item) {
+          return Promise.resolve(item);
+        }
         return new Promise<EventData | null>((resolve) => {
           client.waiters.push(resolve);
         });
@@ -56,7 +60,9 @@ class EventBus {
   broadcast(event: string, data: Record<string, unknown>): void {
     const payload: EventData = { event, data: JSON.stringify(data) };
     for (const client of this.clients.values()) {
-      if (client.closed) continue;
+      if (client.closed) {
+        continue;
+      }
       const waiter = client.waiters.shift();
       if (waiter) {
         waiter(payload);

@@ -39,6 +39,14 @@ app.route('/hooks', webhooksRouter);
 app.route('/api/settings', settingsRouter);
 app.route('/api/auth/github-copilot', copilotAuthRouter);
 
+// Host volume mappings pushed by the host agent on startup (containerPath -> hostPath)
+let hostMounts: Record<string, string> = {};
+app.get('/api/host-mounts', (c) => c.json(hostMounts));
+app.post('/api/host-mounts', async (c) => {
+  hostMounts = (await c.req.json()) as Record<string, string>;
+  return c.json({ ok: true });
+});
+
 // Global SSE events endpoint — broadcasts all state changes to connected frontends
 app.get('/api/events', async (c) => {
   const { clientId, next } = eventBus.subscribe();
@@ -61,7 +69,9 @@ app.get('/api/events', async (c) => {
     try {
       while (true) {
         const event = await next();
-        if (event === null) break;
+        if (event === null) {
+          break;
+        }
         await stream.writeSSE({ event: event.event, data: event.data });
       }
     } finally {
@@ -75,7 +85,10 @@ app.get('/api/events', async (c) => {
 // so CLI commands like `opencode models` can see configured providers.
 function buildGlobalEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
-  const rows = db.prepare('SELECT key, value FROM settings').all() as Array<{ key: string; value: string }>;
+  const rows = db.prepare('SELECT key, value FROM settings').all() as Array<{
+    key: string;
+    value: string;
+  }>;
   for (const row of rows) {
     env[row.key] = row.value;
   }
@@ -86,11 +99,14 @@ function buildGlobalEnv(): NodeJS.ProcessEnv {
 app.get('/api/models', async (c) => {
   try {
     const env = buildGlobalEnv();
-    const { stdout } = await execAsync(`${config.opencodePath} models`, { timeout: 30_000, env });
+    const { stdout } = await execAsync(`${config.opencodePath} models`, {
+      timeout: 30_000,
+      env,
+    });
     const models = stdout
       .split('\n')
-      .map(l => l.trim())
-      .filter(l => l.includes('/') && !l.startsWith('#') && !l.startsWith('='));
+      .map((l) => l.trim())
+      .filter((l) => l.includes('/') && !l.startsWith('#') && !l.startsWith('='));
     return c.json({ models });
   } catch (err) {
     return c.json({ models: [], error: String(err) });
@@ -105,8 +121,8 @@ async function getUserMounts(): Promise<string[]> {
   try {
     const entries = await fs.promises.readdir(root, { withFileTypes: true });
     return entries
-      .filter(e => e.isDirectory())
-      .map(e => path.join(root, e.name))
+      .filter((e) => e.isDirectory())
+      .map((e) => path.join(root, e.name))
       .sort();
   } catch {
     return [];
@@ -139,10 +155,12 @@ app.get('/api/fs', async (c) => {
   // Browsing the root itself — list all mount directories
   if (resolved === root) {
     try {
-      const entries = await fs.promises.readdir(resolved, { withFileTypes: true });
+      const entries = await fs.promises.readdir(resolved, {
+        withFileTypes: true,
+      });
       const dirs = entries
-        .filter(e => e.isDirectory())
-        .map(e => ({ name: e.name, path: path.join(resolved, e.name) }))
+        .filter((e) => e.isDirectory())
+        .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }))
         .sort((a, b) => a.name.localeCompare(b.name));
       return c.json({ path: resolved, parent: null, root, entries: dirs });
     } catch {
@@ -152,19 +170,21 @@ app.get('/api/fs', async (c) => {
 
   // Must be inside a known user mount
   const mounts = await getUserMounts();
-  const insideMount = mounts.some(m => resolved === m || resolved.startsWith(m + path.sep));
+  const insideMount = mounts.some((m) => resolved === m || resolved.startsWith(m + path.sep));
   if (!insideMount) {
     return c.json({ detail: 'Path is not inside a mounted workspace' }, 400);
   }
 
   // Find which mount this path belongs to (used to know when "up" hits the boundary)
-  const mountRoot = mounts.find(m => resolved === m || resolved.startsWith(m + path.sep))!;
+  const mountRoot = mounts.find((m) => resolved === m || resolved.startsWith(m + path.sep))!;
 
   try {
-    const entries = await fs.promises.readdir(resolved, { withFileTypes: true });
+    const entries = await fs.promises.readdir(resolved, {
+      withFileTypes: true,
+    });
     const dirs = entries
-      .filter(e => e.isDirectory())
-      .map(e => ({ name: e.name, path: path.join(resolved, e.name) }))
+      .filter((e) => e.isDirectory())
+      .map((e) => ({ name: e.name, path: path.join(resolved, e.name) }))
       .sort((a, b) => a.name.localeCompare(b.name));
     // parent is root when at mount root, null only at root itself
     const parent = resolved === mountRoot ? root : path.dirname(resolved);

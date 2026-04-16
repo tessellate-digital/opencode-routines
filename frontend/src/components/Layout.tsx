@@ -4,6 +4,7 @@ const links = [
   { to: '/routines', label: 'Routines' },
   { to: '/runs', label: 'Runs' },
   { to: '/settings', label: 'Settings' },
+  ...(import.meta.env.VITE_DEV === 'true' ? [{ to: '/dev', label: 'Dev' }] : []),
 ];
 
 export default function Layout() {

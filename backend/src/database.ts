@@ -58,7 +58,9 @@ export function initDb(): void {
   `);
 
   // Migration: add run_mode column if it doesn't exist yet
-  const routineColumns = (db.prepare("PRAGMA table_info(routines)").all() as { name: string }[]).map(c => c.name);
+  const routineColumns = (
+    db.prepare('PRAGMA table_info(routines)').all() as { name: string }[]
+  ).map((c) => c.name);
   if (!routineColumns.includes('run_mode')) {
     db.exec("ALTER TABLE routines ADD COLUMN run_mode TEXT NOT NULL DEFAULT 'background'");
   }
@@ -71,7 +73,9 @@ export function initDb(): void {
   // deleting a routine preserves its run history.
   // SQLite doesn't support ALTER COLUMN, so we recreate the table if the old
   // schema (NOT NULL cascade) is still in place.
-  const runsTableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='runs'").get() as { sql: string } | undefined;
+  const runsTableInfo = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='runs'")
+    .get() as { sql: string } | undefined;
   if (runsTableInfo && /routine_id TEXT NOT NULL/i.test(runsTableInfo.sql)) {
     db.exec(`
       BEGIN;
@@ -98,12 +102,24 @@ export function initDb(): void {
   }
 
   // Migration: add prompt column to runs if it doesn't exist yet
-  const runColumns = (db.prepare("PRAGMA table_info(runs)").all() as { name: string }[]).map(c => c.name);
+  const runColumns = (db.prepare('PRAGMA table_info(runs)').all() as { name: string }[]).map(
+    (c) => c.name
+  );
   if (!runColumns.includes('prompt')) {
     db.exec("ALTER TABLE runs ADD COLUMN prompt TEXT NOT NULL DEFAULT ''");
   }
   // Migration: add parent_run_id to link reply runs to their parent
   if (!runColumns.includes('parent_run_id')) {
-    db.exec("ALTER TABLE runs ADD COLUMN parent_run_id TEXT DEFAULT NULL");
+    db.exec('ALTER TABLE runs ADD COLUMN parent_run_id TEXT DEFAULT NULL');
+  }
+  // Migration: add routine_name snapshot so the name persists even if routine is deleted
+  if (!runColumns.includes('routine_name')) {
+    db.exec("ALTER TABLE runs ADD COLUMN routine_name TEXT NOT NULL DEFAULT ''");
+    // Back-fill existing rows from the routines table where the routine still exists
+    db.exec(`
+      UPDATE runs SET routine_name = (
+        SELECT name FROM routines WHERE routines.id = runs.routine_id
+      ) WHERE routine_id IS NOT NULL AND routine_name = ''
+    `);
   }
 }

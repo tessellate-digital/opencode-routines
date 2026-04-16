@@ -17,15 +17,17 @@ No child `AGENTS.md` nodes are needed — both `backend/src` (~11.5k tokens) and
 
 **opencode-routines** is a self-hosted automation platform that runs [OpenCode](https://opencode.ai) CLI routines on a schedule or via webhook triggers. It has two independent services:
 
-| Service | Stack | Docker context |
-|---|---|---|
-| Backend | Node 22, Hono, better-sqlite3, node-cron | repo root (`backend/Dockerfile`) |
-| Frontend | React 19, Vite, Tailwind v4, nginx | `./frontend` (`frontend/Dockerfile`) |
+| Service  | Stack                                    | Docker context                       |
+| -------- | ---------------------------------------- | ------------------------------------ |
+| Backend  | Node 22, Hono, better-sqlite3, node-cron | repo root (`backend/Dockerfile`)     |
+| Frontend | React 19, Vite, Tailwind v4, nginx       | `./frontend` (`frontend/Dockerfile`) |
 
 **Single command to run everything:**
+
 ```bash
 docker compose up --build
 ```
+
 The app is available at `http://localhost:8080`.
 
 ---
@@ -47,6 +49,7 @@ backend:8080 (Hono)
 ### SSE Streaming
 
 The backend pushes live run output over Server-Sent Events:
+
 - `GET /api/events` — global event bus (all runs)
 - `GET /api/runs/:id/stream` — per-run output stream
 
@@ -117,14 +120,14 @@ npm run dev:frontend  # Vite on port 5173, proxies /api + /hooks → 8080
 
 ### Build scripts (root package.json)
 
-| Script | What it does |
-|---|---|
-| `npm run dev` | Backend in watch mode (`tsx watch`) |
-| `npm run dev:frontend` | Vite dev server with API proxy |
-| `npm run build` | Compile backend TypeScript → `dist/` |
-| `npm run build:frontend` | Vite build → `frontend/dist/` |
-| `npm run build:all` | Both of the above |
-| `npm start` | Run compiled backend (`node dist/index.js`) |
+| Script                   | What it does                                |
+| ------------------------ | ------------------------------------------- |
+| `npm run dev`            | Backend in watch mode (`tsx watch`)         |
+| `npm run dev:frontend`   | Vite dev server with API proxy              |
+| `npm run build`          | Compile backend TypeScript → `dist/`        |
+| `npm run build:frontend` | Vite build → `frontend/dist/`               |
+| `npm run build:all`      | Both of the above                           |
+| `npm start`              | Run compiled backend (`node dist/index.js`) |
 
 ---
 

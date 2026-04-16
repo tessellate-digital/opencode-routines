@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { api } from '../lib/api';
 import { useRunStream } from '../hooks/useSSE';
 import { StatusBadge } from '../components/RunsTable';
@@ -11,10 +12,16 @@ import type { Run } from '../lib/types';
 // Conversation segment types
 // ---------------------------------------------------------------------------
 
-type TextSegment   = { kind: 'text';   content: string };
-type ToolSegment   = { kind: 'tool';   name: string; args: string; result: string; open: boolean };
-type ErrorSegment  = { kind: 'error';  content: string };
-type StepSegment   = { kind: 'step';   label: string };
+type TextSegment = { kind: 'text'; content: string };
+type ToolSegment = {
+  kind: 'tool';
+  name: string;
+  args: string;
+  result: string;
+  open: boolean;
+};
+type ErrorSegment = { kind: 'error'; content: string };
+type StepSegment = { kind: 'step'; label: string };
 
 type Segment = TextSegment | ToolSegment | ErrorSegment | StepSegment;
 
@@ -48,10 +55,13 @@ function applyEvent(segments: Segment[], type: string, data: string) {
     const firstNewline = data.indexOf('\n');
     const header = firstNewline === -1 ? data : data.slice(0, firstNewline);
     const args = firstNewline === -1 ? '' : data.slice(firstNewline + 1).trim();
-    const name = header.replace(/^\[tool:\s*/, '').replace(/\]$/, '').trim();
+    const name = header
+      .replace(/^\[tool:\s*/, '')
+      .replace(/\]$/, '')
+      .trim();
     segments.push({ kind: 'tool', name, args, result: '', open: false });
   } else if (type === 'tool_result') {
-    const last = [...segments].reverse().find(s => s.kind === 'tool') as ToolSegment | undefined;
+    const last = [...segments].reverse().find((s) => s.kind === 'tool') as ToolSegment | undefined;
     if (last) last.result = data.replace(/^\[result\]\n?/, '').trim();
   } else if (type === 'error') {
     segments.push({ kind: 'error', content: data });
@@ -116,8 +126,8 @@ function ToolRow({ seg, onToggle }: { seg: ToolSegment; onToggle: () => void }) 
 function AgentText({ content }: { content: string }) {
   if (!content.trim()) return null;
   return (
-    <div className="prose prose-sm max-w-none text-[14px] text-[#1d1d1f] leading-relaxed [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:rounded [&_code]:bg-[#e8e8ed] [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_pre]:rounded-lg [&_pre]:bg-[#f5f5f7] [&_pre]:border [&_pre]:border-[#e8e8ed] [&_pre]:px-3 [&_pre]:py-2 [&_pre]:overflow-auto [&_pre]:max-h-64 [&_strong]:font-semibold [&_em]:italic">
-      <ReactMarkdown>{content}</ReactMarkdown>
+    <div className="prose prose-sm max-w-none text-[14px] text-[#1d1d1f] leading-relaxed [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:rounded [&_code]:bg-[#e8e8ed] [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_pre]:rounded-lg [&_pre]:bg-[#f5f5f7] [&_pre]:border [&_pre]:border-[#e8e8ed] [&_pre]:px-3 [&_pre]:py-2 [&_pre]:overflow-auto [&_pre]:max-h-64 [&_strong]:font-semibold [&_em]:italic [&_table]:w-full [&_table]:text-[13px] [&_table]:border-collapse [&_th]:border [&_th]:border-[#d1d1d6] [&_th]:bg-[#f5f5f7] [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-medium [&_td]:border [&_td]:border-[#e8e8ed] [&_td]:px-2.5 [&_td]:py-1.5">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>
   );
 }
@@ -133,7 +143,7 @@ function ErrorBubble({ content }: { content: string }) {
 function ThinkingDots() {
   return (
     <div className="flex items-center gap-1.5 px-1 py-2">
-      {[0, 1, 2].map(i => (
+      {[0, 1, 2].map((i) => (
         <span
           key={i}
           className="size-1.5 rounded-full bg-[#86868b] animate-bounce"
@@ -154,7 +164,9 @@ function PromptContext({ context }: { context: string }) {
   return (
     <details className="group">
       <summary className="cursor-pointer text-xs text-[#86868b] hover:text-[#1d1d1f] list-none flex items-center gap-1">
-        <span className="group-open:rotate-90 transition-transform inline-block text-[10px]">&rsaquo;</span>
+        <span className="group-open:rotate-90 transition-transform inline-block text-[10px]">
+          &rsaquo;
+        </span>
         Prompt context
       </summary>
       <pre className="mt-1.5 rounded-lg border border-[#e8e8ed] bg-[#f5f5f7] px-3 py-2 text-[11px] font-mono text-[#6e6e73] whitespace-pre-wrap overflow-auto max-h-48">
@@ -177,18 +189,12 @@ function SegmentList({
   return (
     <>
       {segments.map((seg, idx) => {
-        if (seg.kind === 'text')  return <AgentText key={idx} content={seg.content} />;
+        if (seg.kind === 'text') return <AgentText key={idx} content={seg.content} />;
         if (seg.kind === 'error') return <ErrorBubble key={idx} content={seg.content} />;
-        if (seg.kind === 'step')  return <StepDivider key={idx} />;
+        if (seg.kind === 'step') return <StepDivider key={idx} />;
         if (seg.kind === 'tool') {
           const open = seg.open || toggledTools.has(idx);
-          return (
-            <ToolRow
-              key={idx}
-              seg={{ ...seg, open }}
-              onToggle={() => onToggleTool(idx)}
-            />
-          );
+          return <ToolRow key={idx} seg={{ ...seg, open }} onToggle={() => onToggleTool(idx)} />;
         }
         return null;
       })}
@@ -266,7 +272,9 @@ export default function RunDetail() {
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Scroll to bottom on new streaming content
   useEffect(() => {
@@ -284,7 +292,10 @@ export default function RunDetail() {
   // run status so the UI can finalize without waiting indefinitely.
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopPolling = useCallback(() => {
-    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
   }, []);
 
   useEffect(() => stopPolling, [stopPolling]); // cleanup on unmount
@@ -302,35 +313,52 @@ export default function RunDetail() {
           liveRef.current = [];
           setThread(runs);
         }
-      } catch { /* ignore polling errors */ }
+      } catch {
+        /* ignore polling errors */
+      }
     }, 2000);
   }, [latestRunId, stopPolling]);
 
   // SSE handlers for the latest run
-  useRunStream(isStreaming ? latestRunId ?? null : null, {
-    onText: useCallback((data: string) => {
-      appendText(liveRef.current, data);
-      updateLive();
-    }, [updateLive]),
-    onTool: useCallback((data: string) => {
-      applyEvent(liveRef.current, 'tool', data);
-      updateLive();
-    }, [updateLive]),
-    onToolResult: useCallback((data: string) => {
-      applyEvent(liveRef.current, 'tool_result', data);
-      updateLive();
-    }, [updateLive]),
-    onError: useCallback((data: string) => {
-      applyEvent(liveRef.current, 'error', data);
-      updateLive();
-    }, [updateLive]),
-    onStatus: useCallback((data: string) => {
-      // When we see "--- done ..." it means the LLM step finished.
-      // Start polling in case the process hangs and never sends `done`.
-      if (data.startsWith('--- done')) {
-        startCompletionPolling();
-      }
-    }, [startCompletionPolling]),
+  useRunStream(isStreaming ? (latestRunId ?? null) : null, {
+    onText: useCallback(
+      (data: string) => {
+        appendText(liveRef.current, data);
+        updateLive();
+      },
+      [updateLive]
+    ),
+    onTool: useCallback(
+      (data: string) => {
+        applyEvent(liveRef.current, 'tool', data);
+        updateLive();
+      },
+      [updateLive]
+    ),
+    onToolResult: useCallback(
+      (data: string) => {
+        applyEvent(liveRef.current, 'tool_result', data);
+        updateLive();
+      },
+      [updateLive]
+    ),
+    onError: useCallback(
+      (data: string) => {
+        applyEvent(liveRef.current, 'error', data);
+        updateLive();
+      },
+      [updateLive]
+    ),
+    onStatus: useCallback(
+      (data: string) => {
+        // When we see "--- done ..." it means the LLM step finished.
+        // Start polling in case the process hangs and never sends `done`.
+        if (data.startsWith('--- done')) {
+          startCompletionPolling();
+        }
+      },
+      [startCompletionPolling]
+    ),
     onStderr: useCallback(() => {}, []),
     onStdout: useCallback(() => {}, []),
     onDone: useCallback(() => {
@@ -339,12 +367,22 @@ export default function RunDetail() {
       liveRef.current = [];
       setTimeout(() => load(), 400);
     }, [load, stopPolling]),
+    onStreamError: useCallback(() => {
+      stopPolling();
+      setIsStreaming(false);
+      liveRef.current = [];
+      setTimeout(() => load(), 600);
+    }, [load, stopPolling]),
   });
 
   const handleCancel = async () => {
     if (!latestRunId || !confirm('Cancel this run?')) return;
-    try { await api.cancelRun(latestRunId); load(); }
-    catch (e) { alert('Error: ' + (e instanceof Error ? e.message : 'Unknown')); }
+    try {
+      await api.cancelRun(latestRunId);
+      load();
+    } catch (e) {
+      alert('Error: ' + (e instanceof Error ? e.message : 'Unknown'));
+    }
   };
 
   const handleReply = async (e: React.FormEvent) => {
@@ -363,25 +401,28 @@ export default function RunDetail() {
   };
 
   const toggleTool = useCallback((runId: string, idx: number) => {
-    setToggledTools(prev => {
+    setToggledTools((prev) => {
       const runSet = new Set(prev[runId] ?? []);
-      if (runSet.has(idx)) runSet.delete(idx); else runSet.add(idx);
+      if (runSet.has(idx)) runSet.delete(idx);
+      else runSet.add(idx);
       return { ...prev, [runId]: runSet };
     });
   }, []);
 
   if (loading) return <p className="p-4 text-sm text-[#6e6e73]">Loading...</p>;
-  if (error)   return <p className="p-4 text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (error) return <p className="p-4 text-sm text-[#ff3b30]">Error: {error}</p>;
   if (!thread.length) return <p className="p-4 text-sm text-[#ff3b30]">Run not found</p>;
 
   const currentRun = thread[thread.length - 1];
-  const isFinished = ['success', 'failed', 'cancelled'].includes(currentRun.status);
+  const isFinished = ['success', 'failed', 'cancelled', 'lost'].includes(currentRun.status);
 
   return (
     <div className="flex flex-col">
       {/* Header */}
       <div className="mb-6">
-        <Link to="/runs" className="text-xs text-[#0071e3] hover:underline">&larr; Runs</Link>
+        <Link to="/runs" className="text-xs text-[#0071e3] hover:underline">
+          &larr; Runs
+        </Link>
         <div className="mt-2 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold text-[#1d1d1f]">{currentRun.routine_name}</h1>
@@ -400,7 +441,9 @@ export default function RunDetail() {
             </div>
           </div>
           {currentRun.status === 'running' && (
-            <button onClick={handleCancel} className="btn btn-danger shrink-0 text-xs">Cancel</button>
+            <button onClick={handleCancel} className="btn btn-danger shrink-0 text-xs">
+              Cancel
+            </button>
           )}
         </div>
       </div>
@@ -409,20 +452,18 @@ export default function RunDetail() {
       <div className="space-y-4 pb-4">
         {thread.map((run, ti) => {
           const isLast = ti === thread.length - 1;
-          const segments = isLast && isStreaming
-            ? liveSegments
-            : parseSegments(run.stdout || '');
+          const segments = isLast && isStreaming ? liveSegments : parseSegments(run.stdout || '');
           const runToggled = toggledTools[run.id] ?? new Set<number>();
 
           return (
             <div key={run.id} className="space-y-3">
-              {/* User prompt */}
-              {run.prompt && <UserBubble text={run.prompt} />}
-
               {/* Prompt context — only shown once at the top of the thread (first run) */}
               {ti === 0 && typeof run.metadata?.prompt_context === 'string' && (
                 <PromptContext context={run.metadata.prompt_context} />
               )}
+
+              {/* User prompt */}
+              {run.prompt && <UserBubble text={run.prompt} />}
 
               {/* Assistant response */}
               <AssistantCard
@@ -432,7 +473,7 @@ export default function RunDetail() {
                   if (isLast && isStreaming) {
                     // Mutate live ref directly for streaming runs
                     liveRef.current = liveRef.current.map((s, i) =>
-                      i === idx && s.kind === 'tool' ? { ...s, open: !s.open } : s,
+                      i === idx && s.kind === 'tool' ? { ...s, open: !s.open } : s
                     );
                     updateLive();
                   } else {
@@ -443,20 +484,29 @@ export default function RunDetail() {
               />
 
               {/* Turn divider (between turns, not after the last) */}
-              {!isLast && (
-                <div className="border-b border-[#f0f0f0]" />
-              )}
+              {!isLast && <div className="border-b border-[#f0f0f0]" />}
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
 
+      {/* Lost run banner */}
+      {currentRun.status === 'lost' && (
+        <div className="mb-4 rounded-lg border border-[#d1d1d6] bg-[#f5f5f7] px-4 py-3 text-sm text-[#3a3a3c]">
+          <span className="font-medium text-[#1d1d1f]">Connection lost.</span> This run was
+          interrupted — the process stopped responding before it could finish. No further
+          interaction is possible.
+        </div>
+      )}
+
       {/* Stderr (collapsed, only shown if present on the latest finished run) */}
       {currentRun.stderr && isFinished && (
         <details className="group mb-4">
           <summary className="cursor-pointer text-xs text-[#86868b] hover:text-[#1d1d1f] list-none flex items-center gap-1">
-            <span className="group-open:rotate-90 transition-transform inline-block text-[10px]">&rsaquo;</span>
+            <span className="group-open:rotate-90 transition-transform inline-block text-[10px]">
+              &rsaquo;
+            </span>
             Stderr output
           </summary>
           <pre className="mt-2 rounded-lg border border-[#e8e8ed] bg-[#f5f5f7] px-3 py-2 text-[11px] font-mono text-[#6e6e73] whitespace-pre-wrap overflow-auto max-h-48">
@@ -473,18 +523,21 @@ export default function RunDetail() {
         >
           <textarea
             value={replyText}
-            onChange={e => setReplyText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(e as unknown as React.FormEvent);
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey))
+                handleReply(e as unknown as React.FormEvent);
             }}
-            placeholder="Follow up..."
+            placeholder={
+              currentRun.status === 'lost' ? 'Cannot reply — run was lost' : 'Follow up...'
+            }
             rows={2}
-            className="textarea-field flex-1 resize-none text-sm"
-            disabled={replying}
+            className="textarea-field flex-1 resize-none text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={replying || currentRun.status === 'lost'}
           />
           <button
             type="submit"
-            disabled={replying || !replyText.trim()}
+            disabled={replying || !replyText.trim() || currentRun.status === 'lost'}
             className="btn btn-primary shrink-0 self-end disabled:opacity-40 text-sm"
           >
             {replying ? 'Sending...' : 'Send'}

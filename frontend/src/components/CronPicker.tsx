@@ -18,11 +18,11 @@ import { useState, useEffect, useRef } from 'react';
 type Mode = 'hourly' | 'daily' | 'weekdays' | 'weekly' | 'custom';
 
 const MODES: { id: Mode; label: string }[] = [
-  { id: 'hourly',   label: 'Hourly'   },
-  { id: 'daily',    label: 'Daily'    },
+  { id: 'hourly', label: 'Hourly' },
+  { id: 'daily', label: 'Daily' },
   { id: 'weekdays', label: 'Weekdays' },
-  { id: 'weekly',   label: 'Weekly'   },
-  { id: 'custom',   label: 'Custom'   },
+  { id: 'weekly', label: 'Weekly' },
+  { id: 'custom', label: 'Custom' },
 ];
 
 function toMode(expr: string): Mode {
@@ -32,8 +32,8 @@ function toMode(expr: string): Mode {
   const [, , dom, month, dow] = parts;
   if (dom !== '*' || month !== '*') return 'custom';
   if (dow === '1-5') return 'weekdays';
-  if (dow === '0')   return 'weekly';
-  if (dow === '*')   return 'daily';
+  if (dow === '0') return 'weekly';
+  if (dow === '*') return 'daily';
   return 'custom';
 }
 
@@ -56,17 +56,17 @@ function buildExpression(mode: Mode, time: string, custom: string): string {
   const m = parseInt(mStr ?? '0', 10);
   const hh = isNaN(h) ? 9 : h;
   const mm = isNaN(m) ? 0 : m;
-  if (mode === 'daily')    return `${mm} ${hh} * * *`;
+  if (mode === 'daily') return `${mm} ${hh} * * *`;
   if (mode === 'weekdays') return `${mm} ${hh} * * 1-5`;
-  if (mode === 'weekly')   return `${mm} ${hh} * * 0`;
+  if (mode === 'weekly') return `${mm} ${hh} * * 0`;
   return '0 * * * *';
 }
 
 function humanLabel(mode: Mode, time: string): string {
-  if (mode === 'hourly')   return 'Runs every hour';
-  if (mode === 'daily')    return `Runs daily at ${time}`;
+  if (mode === 'hourly') return 'Runs every hour';
+  if (mode === 'daily') return `Runs daily at ${time}`;
   if (mode === 'weekdays') return `Runs weekdays (Mon–Fri) at ${time}`;
-  if (mode === 'weekly')   return `Runs every Sunday at ${time}`;
+  if (mode === 'weekly') return `Runs every Sunday at ${time}`;
   return '';
 }
 
@@ -75,8 +75,21 @@ function humanLabel(mode: Mode, time: string): string {
 // Covers the most common patterns; falls back to empty string for unknown ones.
 // ---------------------------------------------------------------------------
 
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function describeCustomCron(expr: string): string {
   const parts = expr.trim().split(/\s+/);
@@ -133,7 +146,14 @@ function describeCustomCron(expr: string): string {
     if (isAll(dom)) return '';
     if (isNum(dom)) {
       const d = parseInt(dom, 10);
-      const suffix = d === 1 || d === 21 || d === 31 ? 'st' : d === 2 || d === 22 ? 'nd' : d === 3 || d === 23 ? 'rd' : 'th';
+      const suffix =
+        d === 1 || d === 21 || d === 31
+          ? 'st'
+          : d === 2 || d === 22
+            ? 'nd'
+            : d === 3 || d === 23
+              ? 'rd'
+              : 'th';
       return `on the ${d}${suffix}`;
     }
     return `on day ${dom}`;
@@ -164,9 +184,9 @@ interface CronPickerProps {
 }
 
 export function CronPicker({ value, onChange }: CronPickerProps) {
-  const [mode, setMode]     = useState<Mode>(() => toMode(value));
-  const [time, setTime]     = useState<string>(() => toTime(value));
-  const [custom, setCustom] = useState<string>(() => mode === 'custom' ? value : '');
+  const [mode, setMode] = useState<Mode>(() => toMode(value));
+  const [time, setTime] = useState<string>(() => toTime(value));
+  const [custom, setCustom] = useState<string>(() => (mode === 'custom' ? value : ''));
 
   // Track whether the user has explicitly selected a mode in this session.
   // When true we suppress external value-driven mode syncing so that:
@@ -193,7 +213,7 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
     if (m === 'custom' && !custom) {
       setCustom(currentExpr);
     }
-    const expr = buildExpression(m, time, m === 'custom' ? (custom || currentExpr) : custom);
+    const expr = buildExpression(m, time, m === 'custom' ? custom || currentExpr : custom);
     onChange(expr);
   }
 
@@ -211,7 +231,7 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
   }
 
   const presetLabel = humanLabel(mode, time);
-  const customDesc  = mode === 'custom' ? describeCustomCron(custom) : '';
+  const customDesc = mode === 'custom' ? describeCustomCron(custom) : '';
 
   return (
     <div className="space-y-3">
@@ -262,12 +282,8 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
       )}
 
       {/* Human-readable label */}
-      {presetLabel && (
-        <p className="text-xs text-[#6e6e73]">{presetLabel}</p>
-      )}
-      {mode === 'custom' && customDesc && (
-        <p className="text-xs text-[#6e6e73]">{customDesc}</p>
-      )}
+      {presetLabel && <p className="text-xs text-[#6e6e73]">{presetLabel}</p>}
+      {mode === 'custom' && customDesc && <p className="text-xs text-[#6e6e73]">{customDesc}</p>}
     </div>
   );
 }

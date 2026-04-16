@@ -19,22 +19,40 @@ function triggerToResponse(t: TriggerRow) {
   };
 }
 
+router.get('/triggers', (c) => {
+  const type = c.req.query('type');
+  const rows = type
+    ? (db
+        .prepare('SELECT * FROM triggers WHERE type = ? AND enabled = 1')
+        .all(type) as TriggerRow[])
+    : (db.prepare('SELECT * FROM triggers WHERE enabled = 1').all() as TriggerRow[]);
+  return c.json(rows.map(triggerToResponse));
+});
+
 router.get('/routines/:routineId/triggers', (c) => {
   const routineId = c.req.param('routineId');
   const routine = db.prepare('SELECT id FROM routines WHERE id = ?').get(routineId);
-  if (!routine) return c.json({ detail: 'Routine not found' }, 404);
+  if (!routine) {
+    return c.json({ detail: 'Routine not found' }, 404);
+  }
 
-  const triggers = db.prepare('SELECT * FROM triggers WHERE routine_id = ?').all(routineId) as TriggerRow[];
+  const triggers = db
+    .prepare('SELECT * FROM triggers WHERE routine_id = ?')
+    .all(routineId) as TriggerRow[];
   return c.json(triggers.map(triggerToResponse));
 });
 
 router.post('/routines/:routineId/triggers', zValidator('json', TriggerCreateSchema), (c) => {
   const routineId = c.req.param('routineId');
-  const routine = db.prepare('SELECT * FROM routines WHERE id = ?').get(routineId) as RoutineRow | undefined;
-  if (!routine) return c.json({ detail: 'Routine not found' }, 404);
+  const routine = db.prepare('SELECT * FROM routines WHERE id = ?').get(routineId) as
+    | RoutineRow
+    | undefined;
+  if (!routine) {
+    return c.json({ detail: 'Routine not found' }, 404);
+  }
 
   const data = c.req.valid('json');
-  const triggerConfig = { ...data.config as Record<string, unknown> };
+  const triggerConfig = { ...(data.config as Record<string, unknown>) };
 
   if (data.type === 'api' && !triggerConfig.token) {
     triggerConfig.token = randomBytes(32).toString('hex');
@@ -42,14 +60,19 @@ router.post('/routines/:routineId/triggers', zValidator('json', TriggerCreateSch
   if (data.type === 'github' && !triggerConfig.secret) {
     triggerConfig.secret = randomBytes(20).toString('hex');
   }
+  if (data.type === 'watcher' && !triggerConfig.secret) {
+    triggerConfig.secret = randomBytes(20).toString('hex');
+  }
 
   const id = randomUUID();
   const now = new Date().toISOString();
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO triggers (id, routine_id, type, config, enabled, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, routineId, data.type, JSON.stringify(triggerConfig), data.enabled ? 1 : 0, now);
+  `
+  ).run(id, routineId, data.type, JSON.stringify(triggerConfig), data.enabled ? 1 : 0, now);
 
   const trigger = db.prepare('SELECT * FROM triggers WHERE id = ?').get(id) as TriggerRow;
 
@@ -62,15 +85,25 @@ router.post('/routines/:routineId/triggers', zValidator('json', TriggerCreateSch
 
 router.put('/triggers/:triggerId', zValidator('json', TriggerUpdateSchema), (c) => {
   const triggerId = c.req.param('triggerId');
-  const trigger = db.prepare('SELECT * FROM triggers WHERE id = ?').get(triggerId) as TriggerRow | undefined;
-  if (!trigger) return c.json({ detail: 'Trigger not found' }, 404);
+  const trigger = db.prepare('SELECT * FROM triggers WHERE id = ?').get(triggerId) as
+    | TriggerRow
+    | undefined;
+  if (!trigger) {
+    return c.json({ detail: 'Trigger not found' }, 404);
+  }
 
   const data = c.req.valid('json');
   const updates: string[] = [];
   const values: unknown[] = [];
 
-  if (data.config !== undefined) { updates.push('config = ?'); values.push(JSON.stringify(data.config)); }
-  if (data.enabled !== undefined) { updates.push('enabled = ?'); values.push(data.enabled ? 1 : 0); }
+  if (data.config !== undefined) {
+    updates.push('config = ?');
+    values.push(JSON.stringify(data.config));
+  }
+  if (data.enabled !== undefined) {
+    updates.push('enabled = ?');
+    values.push(data.enabled ? 1 : 0);
+  }
 
   if (updates.length > 0) {
     values.push(triggerId);
@@ -80,7 +113,9 @@ router.put('/triggers/:triggerId', zValidator('json', TriggerUpdateSchema), (c) 
   const updated = db.prepare('SELECT * FROM triggers WHERE id = ?').get(triggerId) as TriggerRow;
 
   if (updated.type === 'cron') {
-    const routine = db.prepare('SELECT * FROM routines WHERE id = ?').get(updated.routine_id) as RoutineRow;
+    const routine = db
+      .prepare('SELECT * FROM routines WHERE id = ?')
+      .get(updated.routine_id) as RoutineRow;
     if (updated.enabled === 1) {
       schedulerService.registerTrigger(updated, routine);
     } else {
@@ -93,8 +128,12 @@ router.put('/triggers/:triggerId', zValidator('json', TriggerUpdateSchema), (c) 
 
 router.delete('/triggers/:triggerId', (c) => {
   const triggerId = c.req.param('triggerId');
-  const trigger = db.prepare('SELECT * FROM triggers WHERE id = ?').get(triggerId) as TriggerRow | undefined;
-  if (!trigger) return c.json({ detail: 'Trigger not found' }, 404);
+  const trigger = db.prepare('SELECT * FROM triggers WHERE id = ?').get(triggerId) as
+    | TriggerRow
+    | undefined;
+  if (!trigger) {
+    return c.json({ detail: 'Trigger not found' }, 404);
+  }
 
   if (trigger.type === 'cron') {
     schedulerService.unregisterTrigger(triggerId);

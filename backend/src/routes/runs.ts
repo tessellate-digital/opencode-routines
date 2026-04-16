@@ -11,11 +11,20 @@ import type { RunRow, RoutineRow } from '../types';
 const router = new Hono();
 
 function runToResponse(r: RunRow) {
-  const routine = db.prepare('SELECT name FROM routines WHERE id = ?').get(r.routine_id) as Pick<RoutineRow, 'name'> | undefined;
+  // Use the snapshotted name first; fall back to live lookup for older rows
+  const routine_name =
+    r.routine_name ||
+    (r.routine_id
+      ? ((
+          db.prepare('SELECT name FROM routines WHERE id = ?').get(r.routine_id) as
+            | Pick<RoutineRow, 'name'>
+            | undefined
+        )?.name ?? '')
+      : '');
   return {
     id: r.id,
     routine_id: r.routine_id,
-    routine_name: routine?.name ?? '',
+    routine_name,
     trigger_id: r.trigger_id,
     trigger_type: r.trigger_type,
     prompt: r.prompt,
@@ -41,9 +50,17 @@ router.get('/', (c) => {
   const params: unknown[] = [];
   const conditions: string[] = [];
 
-  if (routineId) { conditions.push('routine_id = ?'); params.push(routineId); }
-  if (status) { conditions.push('status = ?'); params.push(status); }
-  if (conditions.length) sql += ` WHERE ${conditions.join(' AND ')}`;
+  if (routineId) {
+    conditions.push('routine_id = ?');
+    params.push(routineId);
+  }
+  if (status) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+  if (conditions.length) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
   sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
@@ -52,21 +69,29 @@ router.get('/', (c) => {
 });
 
 router.get('/:id', (c) => {
-  const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(c.req.param('id')) as RunRow | undefined;
-  if (!row) return c.json({ detail: 'Run not found' }, 404);
+  const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(c.req.param('id')) as
+    | RunRow
+    | undefined;
+  if (!row) {
+    return c.json({ detail: 'Run not found' }, 404);
+  }
   return c.json(runToResponse(row));
 });
 
 router.post('/:id/cancel', async (c) => {
   const runId = c.req.param('id');
   const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
-  if (!row) return c.json({ detail: 'Run not found' }, 404);
+  if (!row) {
+    return c.json({ detail: 'Run not found' }, 404);
+  }
 
   // Already cancelled — idempotent success
-  if (row.status === 'cancelled') return c.json({ status: 'cancelled' });
+  if (row.status === 'cancelled') {
+    return c.json({ status: 'cancelled' });
+  }
 
   // Already finished — nothing to cancel
-  if (['success', 'failed'].includes(row.status)) {
+  if (['success', 'failed', 'lost'].includes(row.status)) {
     return c.json({ detail: `Run already finished with status '${row.status}'` }, 409);
   }
 
@@ -78,14 +103,18 @@ router.post('/:id/cancel', async (c) => {
 router.get('/:id/stream', async (c) => {
   const runId = c.req.param('id');
   const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
-  if (!row) return c.json({ detail: 'Run not found' }, 404);
+  if (!row) {
+    return c.json({ detail: 'Run not found' }, 404);
+  }
 
   // Already finished — replay stored output
   if (['success', 'failed', 'cancelled'].includes(row.status)) {
     return streamSSE(c, async (stream) => {
       if (row.stdout) {
         for (const line of row.stdout.split('\n')) {
-          if (!line) continue;
+          if (!line) {
+            continue;
+          }
           try {
             const evt = JSON.parse(line) as { type: string; data: string };
             await stream.writeSSE({ event: evt.type, data: evt.data });
@@ -95,22 +124,46 @@ router.get('/:id/stream', async (c) => {
           }
         }
       }
-      if (row.stderr) await stream.writeSSE({ event: 'stderr', data: row.stderr });
-      await stream.writeSSE({ event: 'done', data: JSON.stringify({ status: row.status, exit_code: row.exit_code }) });
+      if (row.stderr) {
+        await stream.writeSSE({ event: 'stderr', data: row.stderr });
+      }
+      await stream.writeSSE({
+        event: 'done',
+        data: JSON.stringify({ status: row.status, exit_code: row.exit_code }),
+      });
     });
   }
 
   const queue = executor.getStream(runId);
-  if (!queue) return c.json({ detail: 'No active stream for this run' }, 404);
+  if (!queue) {
+    // No active stream but run is still marked running — the process died without
+    // updating the DB (e.g. container restart).  Mark it 'lost' so it's visually
+    // distinct and the frontend stops trying to stream.
+    const now = new Date().toISOString();
+    db.prepare(
+      `UPDATE runs SET status = 'lost', finished_at = ? WHERE id = ? AND status = 'running'`
+    ).run(now, runId);
+    return streamSSE(c, async (stream) => {
+      await stream.writeSSE({
+        event: 'done',
+        data: JSON.stringify({ status: 'lost', exit_code: null }),
+      });
+    });
+  }
 
   return streamSSE(c, async (stream) => {
     while (true) {
       const msg = await queue.get();
       if (msg === null) {
-        const finalRun = db.prepare('SELECT status, exit_code FROM runs WHERE id = ?').get(runId) as Pick<RunRow, 'status' | 'exit_code'> | undefined;
+        const finalRun = db
+          .prepare('SELECT status, exit_code FROM runs WHERE id = ?')
+          .get(runId) as Pick<RunRow, 'status' | 'exit_code'> | undefined;
         await stream.writeSSE({
           event: 'done',
-          data: JSON.stringify({ status: finalRun?.status ?? 'unknown', exit_code: finalRun?.exit_code ?? null }),
+          data: JSON.stringify({
+            status: finalRun?.status ?? 'unknown',
+            exit_code: finalRun?.exit_code ?? null,
+          }),
         });
         break;
       }
@@ -124,14 +177,20 @@ router.get('/:id/stream', async (c) => {
 router.get('/:id/thread', (c) => {
   const runId = c.req.param('id');
   const startRow = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
-  if (!startRow) return c.json({ detail: 'Run not found' }, 404);
+  if (!startRow) {
+    return c.json({ detail: 'Run not found' }, 404);
+  }
 
   const chain: RunRow[] = [startRow];
   let cur = startRow;
   // Walk up the parent chain (safety limit to avoid infinite loops)
   for (let i = 0; i < 50 && cur.parent_run_id; i++) {
-    const parent = db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as RunRow | undefined;
-    if (!parent) break;
+    const parent = db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as
+      | RunRow
+      | undefined;
+    if (!parent) {
+      break;
+    }
     chain.unshift(parent);
     cur = parent;
   }
@@ -146,16 +205,22 @@ router.get('/:id/thread', (c) => {
 router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) })), async (c) => {
   const runId = c.req.param('id');
   const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
-  if (!row) return c.json({ detail: 'Run not found' }, 404);
+  if (!row) {
+    return c.json({ detail: 'Run not found' }, 404);
+  }
 
   if (!['success', 'failed', 'cancelled'].includes(row.status)) {
     return c.json({ detail: 'Can only reply to finished runs' }, 409);
   }
 
   const routine = row.routine_id
-    ? db.prepare('SELECT * FROM routines WHERE id = ?').get(row.routine_id) as RoutineRow | undefined
+    ? (db.prepare('SELECT * FROM routines WHERE id = ?').get(row.routine_id) as
+        | RoutineRow
+        | undefined)
     : undefined;
-  if (!routine) return c.json({ detail: 'Routine not found' }, 404);
+  if (!routine) {
+    return c.json({ detail: 'Routine not found' }, 404);
+  }
 
   const { text } = c.req.valid('json');
 
@@ -166,7 +231,7 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
   while (cur) {
     chain.unshift(cur);
     cur = cur.parent_run_id
-      ? db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as RunRow | undefined
+      ? (db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as RunRow | undefined)
       : undefined;
   }
 
@@ -175,13 +240,20 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
   for (const r of chain) {
     parts.push(r.prompt);
     const assistantText = r.stdout
-      ? r.stdout.split('\n').flatMap((line: string) => {
-          if (!line) return [];
-          try {
-            const evt = JSON.parse(line) as { type: string; data: string };
-            return evt.type === 'text' ? [evt.data] : [];
-          } catch { return []; }
-        }).join('')
+      ? r.stdout
+          .split('\n')
+          .flatMap((line: string) => {
+            if (!line) {
+              return [];
+            }
+            try {
+              const evt = JSON.parse(line) as { type: string; data: string };
+              return evt.type === 'text' ? [evt.data] : [];
+            } catch {
+              return [];
+            }
+          })
+          .join('')
       : '';
     if (assistantText) {
       parts.push(`\n\n--- Assistant response ---\n${assistantText}`);
@@ -193,15 +265,21 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
   const newRunId = randomUUID();
   const now = new Date().toISOString();
 
-  db.prepare(`
-    INSERT INTO runs (id, routine_id, trigger_type, prompt, parent_run_id, status, metadata, created_at)
-    VALUES (?, ?, 'manual', ?, ?, 'pending', ?, ?)
-  `).run(newRunId, routine.id, text, runId, JSON.stringify({ reply_to: runId }), now);
+  db.prepare(
+    `
+    INSERT INTO runs (id, routine_id, routine_name, trigger_type, prompt, parent_run_id, status, metadata, created_at)
+    VALUES (?, ?, ?, 'manual', ?, ?, 'pending', ?, ?)
+  `
+  ).run(newRunId, routine.id, routine.name, text, runId, JSON.stringify({ reply_to: runId }), now);
 
-  eventBus.broadcast('run_created', { run_id: newRunId, routine_id: routine.id, status: 'pending' });
-  executor.startRun(newRunId, routine, fullPrompt).catch(err =>
-    console.error(`Reply run ${newRunId} error:`, err),
-  );
+  eventBus.broadcast('run_created', {
+    run_id: newRunId,
+    routine_id: routine.id,
+    status: 'pending',
+  });
+  executor
+    .startRun(newRunId, routine, fullPrompt)
+    .catch((err) => console.error(`Reply run ${newRunId} error:`, err));
 
   return c.json({ run_id: newRunId }, 202);
 });
