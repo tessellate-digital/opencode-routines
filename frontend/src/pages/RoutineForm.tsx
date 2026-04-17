@@ -178,6 +178,17 @@ function ModelSelect({ value, onChange, favouriteModels, allModels }: ModelSelec
           </div>
 
           <div className="max-h-64 overflow-y-auto py-1">
+            {/* Custom model option — shown when query looks like provider/model but isn't in the list */}
+            {query.includes('/') && !allModels.includes(query) && (
+              <button
+                type="button"
+                onClick={() => handleSelect(query)}
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5f5f7] text-[#0071e3] border-b border-[#f0f0f0]"
+              >
+                Use custom model: <span className="font-mono">{query}</span>
+              </button>
+            )}
+
             {filteredFavourites.length > 0 && (
               <>
                 <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6e6e73]">
@@ -218,7 +229,21 @@ function ModelSelect({ value, onChange, favouriteModels, allModels }: ModelSelec
               ))}
 
             {filteredFavourites.length === 0 && filteredOthers.length === 0 && (
-              <p className="px-3 py-2 text-sm text-[#6e6e73]">No models match "{query}"</p>
+              <>
+                {query.includes('/') ? (
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(query)}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5f5f7] text-[#0071e3]"
+                  >
+                    Use custom model: <span className="font-mono">{query}</span>
+                  </button>
+                ) : (
+                  <p className="px-3 py-2 text-sm text-[#6e6e73]">
+                    No models match "{query}". Type <span className="font-mono">provider/model</span> to use a custom model.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

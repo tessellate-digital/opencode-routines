@@ -6,7 +6,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Install OpenCode CLI
-RUN npm install -g opencode-ai@latest && opencode --version
+# Pinned to 1.3.17 — later versions (1.4.x) have copilot API bugs:
+#   - sends reasoning_effort "minimal" (copilot expects low/medium/high)
+#   - routes gpt-5+ models to /responses endpoint which copilot doesn't support
+RUN npm install -g opencode-ai@1.3.17 && opencode --version
 
 WORKDIR /app
 
@@ -23,6 +26,9 @@ RUN mkdir -p /data /workspaces
 
 ENV DATABASE_URL=sqlite:////data/routines.db
 ENV WORKSPACES_DIR=/workspaces
+# opencode reads auth.json from $XDG_DATA_HOME/opencode/. Point it at /data
+# so copilot OAuth tokens persist across container restarts (the /data volume).
+ENV XDG_DATA_HOME=/data
 
 EXPOSE 8080
 

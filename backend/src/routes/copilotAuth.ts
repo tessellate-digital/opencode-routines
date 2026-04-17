@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { db } from '../database';
 import { invalidateAll } from '../services/opencodeServerPool';
 
@@ -112,6 +115,36 @@ router.get('/poll', async (c) => {
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, is_secret = 1, updated_at = excluded.updated_at
     `
     ).run('GITHUB_TOKEN', data.access_token, now);
+
+    // Also write to opencode's auth.json so `opencode serve` uses the full OAuth
+    // flow (with Copilot token exchange) rather than a raw env-var API key.
+    // opencode reads auth from $XDG_DATA_HOME/opencode/auth.json or ~/.local/share/opencode/auth.json
+    try {
+      const xdgDataHome = process.env.XDG_DATA_HOME;
+      const authDir = xdgDataHome
+        ? path.join(xdgDataHome, 'opencode')
+        : path.join(os.homedir(), '.local', 'share', 'opencode');
+      const authPath = path.join(authDir, 'auth.json');
+
+      let authData: Record<string, unknown> = {};
+      try {
+        authData = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
+      } catch {
+        /* file doesn't exist yet — start fresh */
+      }
+
+      authData['github-copilot'] = {
+        type: 'oauth',
+        refresh: data.access_token,
+        access: '',
+        expires: 0,
+      };
+
+      fs.mkdirSync(authDir, { recursive: true });
+      fs.writeFileSync(authPath, JSON.stringify(authData, null, 2), { mode: 0o600 });
+    } catch (authJsonErr) {
+      console.error('[copilot-auth] Failed to write opencode auth.json:', authJsonErr);
+    }
 
     // Invalidate pooled server contexts so the new token is picked up on the next run.
     void invalidateAll();
