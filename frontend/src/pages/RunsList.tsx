@@ -38,28 +38,28 @@ export default function RunsList() {
     }, [])
   );
 
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (error) return <p className="text-sm text-destructive">Error: {error}</p>;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-[#1d1d1f]">Runs</h1>
+      <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Runs</h1>
       <RunsTable runs={runs} />
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between text-[12px] text-muted-foreground">
         <button
           onClick={() => setPage((p) => p - 1)}
           disabled={page === 0}
-          className="btn btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Previous
+          ← Prev
         </button>
-        <span className="text-sm text-[#6e6e73]">Page {page + 1}</span>
+        <span>Page {page + 1}</span>
         <button
           onClick={() => setPage((p) => p + 1)}
           disabled={!hasNext}
-          className="btn btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Next
+          Next →
         </button>
       </div>
     </div>

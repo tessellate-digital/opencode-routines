@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { db } from '../database';
+import { settingsRepository } from '../repositories/settingsRepository';
 import { SettingCreateSchema } from '../types';
 import type { SettingRow } from '../types';
 import { invalidateAll } from '../services/opencodeServerPool';
@@ -17,36 +17,23 @@ function settingToResponse(s: SettingRow) {
 }
 
 router.get('/', (c) => {
-  const rows = db.prepare('SELECT * FROM settings ORDER BY key').all() as SettingRow[];
+  const rows = settingsRepository.findAll();
   return c.json(rows.map(settingToResponse));
 });
 
 router.put('/', zValidator('json', SettingCreateSchema), (c) => {
   const data = c.req.valid('json');
-  const now = new Date().toISOString();
-
-  db.prepare(
-    `
-    INSERT INTO settings (key, value, is_secret, updated_at) VALUES (?, ?, ?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, is_secret = excluded.is_secret, updated_at = excluded.updated_at
-  `
-  ).run(data.key, data.value, data.is_secret ? 1 : 0, now);
-
-  const row = db.prepare('SELECT * FROM settings WHERE key = ?').get(data.key) as SettingRow;
-  // Invalidate pooled server contexts — settings env may have changed.
-  // Servers with active runs are not killed; they become stale and are recycled after run completion.
+  const row = settingsRepository.upsert(data);
   void invalidateAll();
   return c.json(settingToResponse(row));
 });
 
 router.delete('/:key', (c) => {
   const key = c.req.param('key');
-  const row = db.prepare('SELECT key FROM settings WHERE key = ?').get(key);
-  if (!row) {
+  if (!settingsRepository.exists(key)) {
     return c.json({ detail: 'Setting not found' }, 404);
   }
-  db.prepare('DELETE FROM settings WHERE key = ?').run(key);
-  // Invalidate pooled server contexts — removed setting may have been an API key.
+  settingsRepository.delete(key);
   void invalidateAll();
   return new Response(null, { status: 204 });
 });

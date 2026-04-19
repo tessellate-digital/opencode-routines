@@ -6,11 +6,6 @@ import type { Setting } from '../lib/types';
 
 const FAVOURITE_MODELS_KEY = 'FAVOURITE_MODELS';
 
-// ---------------------------------------------------------------------------
-// Model display helpers
-// ---------------------------------------------------------------------------
-
-/** Split "provider/model-name" into its two parts. */
 function splitModel(id: string): { provider: string; model: string } {
   const slash = id.indexOf('/');
   if (slash === -1) return { provider: '', model: id };
@@ -22,18 +17,14 @@ function ModelLabel({ id }: { id: string }) {
   return (
     <span className="flex items-center gap-2 min-w-0">
       {provider && (
-        <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium bg-[#f0f0f5] text-[#6e6e73] uppercase tracking-wide">
+        <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground uppercase tracking-wide">
           {provider}
         </span>
       )}
-      <span className="font-mono text-sm text-[#1d1d1f] truncate">{model || id}</span>
+      <span className="font-mono text-[13px] text-foreground truncate">{model || id}</span>
     </span>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Configured provider card
-// ---------------------------------------------------------------------------
 
 function ConfiguredProviderCard({
   provider,
@@ -46,17 +37,17 @@ function ConfiguredProviderCard({
 }) {
   const configured = provider.fields.filter((f) => settingKeys.has(f.key));
   return (
-    <div className="rounded-lg border border-[#d1d1d6] bg-white">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/80 backdrop-blur-md shadow-sm">
       <div className="flex items-start justify-between gap-4 px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm text-[#1d1d1f]">{provider.name}</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#d1f5d3] px-2 py-0.5 text-xs font-medium text-[#1a7f37]">
-              <span className="size-1.5 rounded-full bg-[#1a7f37]" />
+            <span className="font-medium text-[13px] text-foreground">{provider.name}</span>
+            <span className="status-pill bg-success-soft text-success">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
               Connected
             </span>
           </div>
-          <p className="mt-0.5 text-xs text-[#6e6e73]">{provider.description}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{provider.description}</p>
         </div>
         <button
           onClick={() => onRemove(configured.map((f) => f.key))}
@@ -65,11 +56,11 @@ function ConfiguredProviderCard({
           Remove
         </button>
       </div>
-      <div className="border-t border-[#f0f0f0] divide-y divide-[#f0f0f0]">
+      <div className="border-t border-border/70 divide-y divide-border/50">
         {configured.map((f) => (
           <div key={f.key} className="flex items-center justify-between px-4 py-2 text-xs">
-            <span className="font-mono text-[#6e6e73]">{f.key}</span>
-            <span className="font-mono text-[#1d1d1f]">
+            <span className="font-mono text-muted-foreground">{f.key}</span>
+            <span className="font-mono text-foreground">
               {f.secret ? '••••••••' : settingKeys.has(f.key) ? '(set)' : '—'}
             </span>
           </div>
@@ -78,10 +69,6 @@ function ConfiguredProviderCard({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Add provider form
-// ---------------------------------------------------------------------------
 
 function AddProviderForm({
   provider,
@@ -121,18 +108,18 @@ function AddProviderForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border border-[#0071e3] bg-white p-4 space-y-3"
+      className="overflow-hidden rounded-xl border border-accent/30 bg-surface/80 backdrop-blur-md shadow-sm p-4 space-y-3"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-medium text-sm text-[#1d1d1f]">{provider.name}</p>
-          <p className="text-xs text-[#6e6e73]">{provider.description}</p>
+          <p className="font-medium text-[13px] text-foreground">{provider.name}</p>
+          <p className="text-xs text-muted-foreground">{provider.description}</p>
         </div>
         <a
           href={provider.docsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 text-xs text-[#0071e3] hover:underline"
+          className="shrink-0 text-xs text-accent hover:underline"
         >
           Docs ↗
         </a>
@@ -140,13 +127,13 @@ function AddProviderForm({
       <div className="space-y-2">
         {provider.fields.map((f) => (
           <div key={f.key}>
-            <label className="mb-1 block text-xs text-[#6e6e73]">{f.label}</label>
+            <label className="mb-1 block text-xs text-muted-foreground">{f.label}</label>
             <input
               type={f.secret ? 'password' : 'text'}
               value={values[f.key]}
               onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
               placeholder={f.placeholder}
-              className="input-field w-full"
+              className="input-field"
               autoComplete="off"
             />
           </div>
@@ -163,10 +150,6 @@ function AddProviderForm({
     </form>
   );
 }
-
-// ---------------------------------------------------------------------------
-// GitHub Copilot device flow
-// ---------------------------------------------------------------------------
 
 function CopilotDeviceFlow({
   provider,
@@ -191,7 +174,6 @@ function CopilotDeviceFlow({
     }
   };
 
-  // Cleanup on unmount
   useEffect(() => () => stopPolling(), []);
 
   const startFlow = async () => {
@@ -203,13 +185,8 @@ function CopilotDeviceFlow({
       setUserCode(data.user_code);
       setVerificationUri(data.verification_uri);
       setPhase('waiting');
-
-      // Open GitHub in a new tab
       window.open(data.verification_uri, '_blank');
 
-      // Start polling after a delay — the user needs time to navigate to
-      // GitHub, authorize, and return.  Use recursive setTimeout so the
-      // interval can be increased when GitHub returns "slow_down".
       let pollInterval = Math.max((data.interval || 5) * 1000, 5000);
       const INITIAL_DELAY = 10_000;
 
@@ -233,10 +210,8 @@ function CopilotDeviceFlow({
               setErrorMsg('Authorization was denied.');
               return;
             } else if (poll.status === 'slow_down') {
-              // GitHub requires increasing the interval by 5 seconds
               pollInterval += 5000;
             }
-            // authorization_pending / slow_down → schedule next poll
           } catch (err) {
             console.warn('[copilot poll]', err);
           }
@@ -244,7 +219,6 @@ function CopilotDeviceFlow({
         }, pollInterval);
       }
 
-      // Wait before the first poll — user is still on GitHub
       pollingRef.current = setTimeout(schedulePoll, INITIAL_DELAY);
     } catch (err) {
       setPhase('error');
@@ -258,22 +232,22 @@ function CopilotDeviceFlow({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // clipboard API may not be available
+      /* clipboard API may not be available */
     }
   };
 
   return (
-    <div className="rounded-lg border border-[#0071e3] bg-white p-4 space-y-4">
+    <div className="overflow-hidden rounded-xl border border-accent/30 bg-surface/80 backdrop-blur-md shadow-sm p-4 space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-medium text-sm text-[#1d1d1f]">{provider.name}</p>
-          <p className="text-xs text-[#6e6e73]">{provider.description}</p>
+          <p className="font-medium text-[13px] text-foreground">{provider.name}</p>
+          <p className="text-xs text-muted-foreground">{provider.description}</p>
         </div>
         <a
           href={provider.docsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 text-xs text-[#0071e3] hover:underline"
+          className="shrink-0 text-xs text-accent hover:underline"
         >
           Docs
         </a>
@@ -281,7 +255,7 @@ function CopilotDeviceFlow({
 
       {phase === 'idle' && (
         <div className="space-y-3">
-          <p className="text-sm text-[#6e6e73]">
+          <p className="text-sm text-muted-foreground">
             Connect your GitHub Copilot subscription by authorizing via GitHub.
           </p>
           <div className="flex gap-2">
@@ -297,28 +271,28 @@ function CopilotDeviceFlow({
 
       {phase === 'waiting' && (
         <div className="space-y-3">
-          <p className="text-sm text-[#1d1d1f]">
+          <p className="text-sm text-foreground">
             Go to{' '}
             <a
               href={verificationUri}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#0071e3] underline"
+              className="text-accent underline"
             >
               {verificationUri}
             </a>{' '}
             and enter this code:
           </p>
           <div className="flex items-center gap-3">
-            <code className="rounded-md bg-[#f5f5f7] border border-[#d1d1d6] px-4 py-2 text-xl font-mono font-bold tracking-widest text-[#1d1d1f] select-all">
+            <code className="rounded-lg border border-border/70 bg-muted px-4 py-2 text-xl font-mono font-bold tracking-widest text-foreground select-all">
               {userCode}
             </code>
             <button onClick={handleCopy} className="btn btn-secondary text-xs">
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          <div className="flex items-center gap-2 text-sm text-[#6e6e73]">
-            <span className="inline-block size-3 animate-spin rounded-full border-2 border-[#0071e3] border-t-transparent" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="inline-block size-3 animate-spin rounded-full border-2 border-accent border-t-transparent" />
             Waiting for authorization...
           </div>
           <button
@@ -334,15 +308,15 @@ function CopilotDeviceFlow({
       )}
 
       {phase === 'success' && (
-        <div className="flex items-center gap-2 text-sm font-medium text-[#1a7f37]">
-          <span className="size-2 rounded-full bg-[#1a7f37]" />
+        <div className="flex items-center gap-2 text-sm font-medium text-success">
+          <span className="size-2 rounded-full bg-success" />
           Connected successfully!
         </div>
       )}
 
       {phase === 'error' && (
         <div className="space-y-3">
-          <p className="text-sm text-[#ff3b30]">{errorMsg}</p>
+          <p className="text-sm text-destructive">{errorMsg}</p>
           <div className="flex gap-2">
             <button onClick={startFlow} className="btn btn-primary">
               Try again
@@ -357,10 +331,6 @@ function CopilotDeviceFlow({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Provider picker (the "add" step)
-// ---------------------------------------------------------------------------
-
 function ProviderPicker({
   configured,
   onSelect,
@@ -373,11 +343,7 @@ function ProviderPicker({
 
   const q = query.toLowerCase();
   const isSearching = q.length > 0;
-
-  // All providers not already configured
   const unconfigured = PROVIDERS.filter((p) => !p.fields.every((f) => configured.has(f.key)));
-
-  // What to display: search results, "all", or just popular
   const visible = isSearching
     ? unconfigured.filter(
         (p) =>
@@ -401,7 +367,7 @@ function ProviderPicker({
           if (e.target.value) setShowAll(false);
         }}
         placeholder="Search all providers…"
-        className="input-field w-full max-w-sm"
+        className="input-field max-w-sm"
         autoFocus
       />
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -409,25 +375,25 @@ function ProviderPicker({
           <button
             key={p.id}
             onClick={() => onSelect(p)}
-            className="rounded-lg border border-[#d1d1d6] bg-white p-3 text-left hover:border-[#0071e3] hover:bg-[#f5f9ff] transition-colors"
+            className="rounded-xl border border-border/70 bg-surface/80 p-3 text-left backdrop-blur-sm transition-colors hover:border-accent/40 hover:bg-accent-soft/50"
           >
-            <p className="font-medium text-sm text-[#1d1d1f]">{p.name}</p>
-            <p className="mt-0.5 text-xs text-[#6e6e73] line-clamp-2">{p.description}</p>
+            <p className="font-medium text-[13px] text-foreground">{p.name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{p.description}</p>
           </button>
         ))}
         {visible.length === 0 && (
-          <p className="text-sm text-[#6e6e73] col-span-full">No matching providers.</p>
+          <p className="text-sm text-muted-foreground col-span-full">No matching providers.</p>
         )}
       </div>
       {!isSearching && !showAll && hiddenCount > 0 && (
-        <button onClick={() => setShowAll(true)} className="text-sm text-[#0071e3] hover:underline">
+        <button onClick={() => setShowAll(true)} className="text-sm text-accent hover:underline">
           Show all providers ({hiddenCount} more)
         </button>
       )}
       {!isSearching && showAll && (
         <button
           onClick={() => setShowAll(false)}
-          className="text-sm text-[#6e6e73] hover:underline"
+          className="text-sm text-muted-foreground hover:underline"
         >
           Show popular only
         </button>
@@ -435,10 +401,6 @@ function ProviderPicker({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Main Settings page
-// ---------------------------------------------------------------------------
 
 type AddState = { step: 'idle' } | { step: 'pick' } | { step: 'form'; provider: Provider };
 
@@ -448,7 +410,6 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [addState, setAddState] = useState<AddState>({ step: 'idle' });
 
-  // Favourite models
   const [allModels, setAllModels] = useState<string[]>([]);
   const [favourites, setFavourites] = useState<string[]>([]);
   const [modelQuery, setModelQuery] = useState('');
@@ -490,8 +451,6 @@ export default function Settings() {
   }, [load, loadModels]);
 
   const settingKeys = new Set(settings.map((s) => s.key));
-
-  // Which providers are fully or partially configured
   const configuredProviders = PROVIDERS.filter((p) => p.fields.some((f) => settingKeys.has(f.key)));
 
   const handleProviderSave = async (fields: { key: string; value: string; secret: boolean }[]) => {
@@ -500,7 +459,6 @@ export default function Settings() {
     );
     setAddState({ step: 'idle' });
     load();
-    // Re-fetch models — the new API key may unlock additional provider models
     setModelsLoading(true);
     loadModels();
   };
@@ -509,7 +467,6 @@ export default function Settings() {
     if (!confirm(`Remove ${keys.join(', ')}?`)) return;
     await Promise.all(keys.map((k) => api.deleteSetting(k)));
     load();
-    // Re-fetch models — removed keys may reduce available models
     setModelsLoading(true);
     loadModels();
   };
@@ -526,26 +483,24 @@ export default function Settings() {
     });
   };
 
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (error) return <p className="text-sm text-destructive">Error: {error}</p>;
 
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-xl font-semibold text-[#1d1d1f]">Settings</h1>
-        <p className="mt-1 text-sm text-[#6e6e73]">
+        <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Settings</h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
           Configure AI providers and favourite models for your routines.
         </p>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Providers section                                                    */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Providers */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-[#1d1d1f]">Providers</h2>
-            <p className="text-xs text-[#6e6e73] mt-0.5">
+            <h2 className="text-[14px] font-semibold text-foreground">Providers</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
               API keys stored here are injected into every routine run.
             </p>
           </div>
@@ -561,7 +516,6 @@ export default function Settings() {
           )}
         </div>
 
-        {/* Picker */}
         {addState.step === 'pick' && (
           <ProviderPicker
             configured={settingKeys}
@@ -569,7 +523,6 @@ export default function Settings() {
           />
         )}
 
-        {/* Form */}
         {addState.step === 'form' && addState.provider.authFlow === 'device' && (
           <CopilotDeviceFlow
             provider={addState.provider}
@@ -590,7 +543,6 @@ export default function Settings() {
           />
         )}
 
-        {/* Configured list */}
         {configuredProviders.length > 0 ? (
           <div className="space-y-3">
             {configuredProviders.map((p) => (
@@ -604,11 +556,11 @@ export default function Settings() {
           </div>
         ) : (
           addState.step === 'idle' && (
-            <div className="rounded-lg border border-dashed border-[#d1d1d6] px-4 py-8 text-center">
-              <p className="text-sm text-[#6e6e73]">No providers connected yet.</p>
+            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+              <p className="text-sm text-muted-foreground">No providers connected yet.</p>
               <button
                 onClick={() => setAddState({ step: 'pick' })}
-                className="mt-2 text-sm text-[#0071e3] hover:underline"
+                className="mt-2 text-sm text-accent hover:underline"
               >
                 Add your first provider →
               </button>
@@ -617,24 +569,21 @@ export default function Settings() {
         )}
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Favourite models                                                      */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Favourite models */}
       <section className="space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-[#1d1d1f]">Favourite models</h2>
-          <p className="text-xs text-[#6e6e73] mt-0.5">
-            Favourite models appear first when selecting a model for a routine. Search by model name
-            or provider.
+          <h2 className="text-[14px] font-semibold text-foreground">Favourite models</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Favourite models appear first when selecting a model for a routine.
           </p>
         </div>
 
         {modelsLoading ? (
-          <p className="text-sm text-[#6e6e73]">Loading models…</p>
+          <p className="text-sm text-muted-foreground">Loading models…</p>
         ) : allModels.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[#d1d1d6] px-4 py-8 text-center">
-            <p className="text-sm text-[#6e6e73]">
-              No models available. Connect a provider first, then models will appear here.
+          <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No models available. Connect a provider first.
             </p>
           </div>
         ) : (
@@ -644,25 +593,21 @@ export default function Settings() {
               value={modelQuery}
               onChange={(e) => setModelQuery(e.target.value)}
               placeholder="Search by model name or provider..."
-              className="input-field w-full max-w-sm"
+              className="input-field max-w-sm"
             />
 
-            {/* Current favourites — always visible */}
             {favourites.length > 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Favourites
                 </p>
-                <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0]">
+                <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/80 backdrop-blur-md shadow-sm divide-y divide-border/50">
                   {favourites.map((m) => (
-                    <div
-                      key={m}
-                      className="flex items-center justify-between gap-4 px-4 py-2 bg-white first:rounded-t-lg last:rounded-b-lg"
-                    >
+                    <div key={m} className="flex items-center justify-between gap-4 px-4 py-2">
                       <ModelLabel id={m} />
                       <button
                         onClick={() => toggleFavourite(m)}
-                        className="shrink-0 text-xs text-[#ff3b30] hover:underline"
+                        className="shrink-0 text-xs text-destructive hover:underline"
                       >
                         Remove
                       </button>
@@ -672,11 +617,9 @@ export default function Settings() {
               </div>
             )}
 
-            {/* Search results — only when typing */}
             {modelQuery &&
               (() => {
                 const q = modelQuery.toLowerCase();
-                // Exclude already-favourited models from search results to avoid confusion
                 const favSet = new Set(favourites);
                 const filtered = allModels.filter(
                   (m) => m.toLowerCase().includes(q) && !favSet.has(m)
@@ -684,20 +627,17 @@ export default function Settings() {
                 return filtered.length > 0 ? (
                   <div className="space-y-1">
                     {favourites.length > 0 && (
-                      <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         All models
                       </p>
                     )}
-                    <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0] max-h-80 overflow-y-auto">
+                    <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/80 backdrop-blur-md shadow-sm divide-y divide-border/50 max-h-80 overflow-y-auto">
                       {filtered.map((m) => (
-                        <div
-                          key={m}
-                          className="flex items-center justify-between gap-4 px-4 py-2 bg-white first:rounded-t-lg last:rounded-b-lg"
-                        >
+                        <div key={m} className="flex items-center justify-between gap-4 px-4 py-2">
                           <ModelLabel id={m} />
                           <button
                             onClick={() => toggleFavourite(m)}
-                            className="shrink-0 text-xs text-[#0071e3] hover:underline"
+                            className="shrink-0 text-xs text-accent hover:underline"
                           >
                             Add
                           </button>
@@ -706,12 +646,14 @@ export default function Settings() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-[#6e6e73]">No models matching "{modelQuery}".</p>
+                  <p className="text-sm text-muted-foreground">
+                    No models matching "{modelQuery}".
+                  </p>
                 );
               })()}
 
             {!modelQuery && favourites.length === 0 && (
-              <p className="text-sm text-[#6e6e73]">
+              <p className="text-sm text-muted-foreground">
                 Use the search box above to find models and add them to your favourites.
               </p>
             )}

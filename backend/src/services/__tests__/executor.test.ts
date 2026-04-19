@@ -303,7 +303,7 @@ describe('startRun session.error downgrade', () => {
     await executor.startRun('run-err-1', makeRoutine(), 'do work');
 
     // db.prepare() is called with the SQL string. Find the call that writes 'failed'.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const prepareCalls = mockDbPrepare.mock.calls.map((args: any[]) => args[0] as string);
     const failedCall = prepareCalls.find((sql) => sql.includes("status = 'failed'"));
     expect(failedCall).toBeDefined();
@@ -346,7 +346,7 @@ describe('startRun session.error downgrade', () => {
     const executor = new Executor();
     await executor.startRun('run-ok-1', makeRoutine(), 'do work');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const prepareCalls2 = mockDbPrepare.mock.calls.map((args: any[]) => args[0] as string);
     const successCall = prepareCalls2.find((sql) => sql.includes("status = 'success'"));
     expect(successCall).toBeDefined();

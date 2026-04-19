@@ -134,8 +134,8 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
               key={ext}
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                 value.mode === 'include'
-                  ? 'bg-[#d1f5d3] text-[#1a7f37]'
-                  : 'bg-[#fff5f5] text-[#ff3b30]'
+                  ? 'bg-success-soft text-success'
+                  : 'bg-destructive-soft text-destructive'
               }`}
             >
               {ext}
@@ -158,9 +158,9 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
         </button>
 
         {open && (
-          <div className="absolute z-50 mt-1 w-80 rounded-lg border border-[#d1d1d6] bg-white shadow-lg">
+          <div className="absolute z-50 mt-1 w-80 overflow-hidden rounded-xl border border-border/70 bg-surface/95 shadow-lg backdrop-blur-md">
             {/* Search / custom input */}
-            <div className="p-2 border-b border-[#f0f0f0]">
+            <div className="border-b border-border/70 p-2">
               <input
                 ref={inputRef}
                 type="text"
@@ -168,7 +168,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Filter or type custom ext..."
-                className="input-field text-sm py-1.5"
+                className="input-field text-[13px] py-1.5"
               />
             </div>
 
@@ -178,7 +178,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
                 <button
                   type="button"
                   onClick={addCustom}
-                  className="w-full text-left px-3 py-1.5 text-sm text-[#0071e3] hover:bg-[#f5f5f7]"
+                  className="w-full text-left px-3 py-1.5 text-[13px] text-accent hover:bg-accent/10"
                 >
                   Add "{query.startsWith('.') ? query : '.' + query}"
                 </button>
@@ -192,25 +192,27 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
                 return (
                   <div key={p.ext}>
                     {showCat && (
-                      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6e6e73]">
+                      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         {p.category}
                       </div>
                     )}
                     <button
                       type="button"
                       onClick={() => toggle(p.ext)}
-                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5f5f7] flex items-center justify-between ${
-                        selected.has(p.ext) ? 'font-medium text-[#0071e3]' : 'text-[#1d1d1f]'
+                      className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-[13px] hover:bg-accent/10 ${
+                        selected.has(p.ext) ? 'font-medium text-accent' : 'text-foreground'
                       }`}
                     >
                       <span>{p.ext}</span>
-                      {selected.has(p.ext) && <span className="text-xs">&#10003;</span>}
+                      {selected.has(p.ext) && <span className="text-xs">✓</span>}
                     </button>
                   </div>
                 );
               })}
               {filtered.length === 0 && !query.trim() && (
-                <p className="px-3 py-2 text-sm text-[#6e6e73]">No file types available</p>
+                <p className="px-3 py-2 text-[13px] text-muted-foreground">
+                  No file types available
+                </p>
               )}
             </div>
           </div>

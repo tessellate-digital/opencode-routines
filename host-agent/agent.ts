@@ -93,12 +93,7 @@ async function fetchWatcherTriggers(): Promise<WatcherTrigger[]> {
   return triggers
     .filter((t) => t.enabled)
     .map((t) => {
-      // Support both config.paths (array) and legacy config.path (string)
-      const rawPaths: string[] = Array.isArray(t.config.paths)
-        ? (t.config.paths as string[])
-        : typeof t.config.path === 'string' && t.config.path
-          ? [t.config.path as string]
-          : [];
+      const rawPaths = (t.config.paths as string[]) ?? [];
       const containerPaths = rawPaths.filter(Boolean);
       const hostPaths = containerPaths.map((p) => toHostPath(p, volumeMounts)).filter(Boolean);
 

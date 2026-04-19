@@ -9,31 +9,53 @@ const links = [
 
 export default function Layout() {
   return (
-    <div className="min-h-screen bg-white text-[#1d1d1f]">
-      <header className="border-b border-[#d1d1d6]">
-        <div className="mx-auto flex max-w-5xl items-center gap-8 px-6 py-3">
-          <NavLink to="/" className="text-sm font-semibold text-[#1d1d1f]">
+    <div className="relative flex h-full flex-col">
+      {/* Ambient background glows */}
+      <div className="pointer-events-none fixed -top-[10%] -right-[5%] h-[40vw] w-[40vw] rounded-full bg-accent/10 blur-[100px]" />
+      <div className="pointer-events-none fixed -bottom-[10%] -left-[5%] h-[40vw] w-[40vw] rounded-full bg-accent-warm/10 blur-[100px]" />
+
+      {/* Nav */}
+      <div className="relative z-10 flex shrink-0 items-center gap-8 border-b border-accent/20 bg-accent/5 px-6 py-4 shadow-sm backdrop-blur-md">
+        <NavLink to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-warm text-white shadow-md">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+          </div>
+          <span className="text-[16px] font-semibold tracking-tight text-foreground">
             Opencode Routines
-          </NavLink>
-          <nav className="flex items-center gap-1">
-            {links.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                className={({ isActive }) =>
-                  isActive
-                    ? 'rounded-md px-3 py-1.5 text-sm font-medium bg-[#f5f5f7] text-[#1d1d1f]'
-                    : 'rounded-md px-3 py-1.5 text-sm text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'
-                }
-              >
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
+          </span>
+        </NavLink>
+
+        <nav className="flex items-center gap-1">
+          {links.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              className={({ isActive }) =>
+                isActive
+                  ? 'rounded-md bg-accent/15 px-3 py-1.5 text-[13px] font-medium text-accent shadow-sm'
+                  : 'rounded-md px-3 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-surface/50 hover:text-foreground'
+              }
+            >
+              {l.label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+
+      {/* Page content */}
+      <main className="relative z-10 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-5xl px-8 py-7">
+          <Outlet />
         </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">
-        <Outlet />
       </main>
     </div>
   );

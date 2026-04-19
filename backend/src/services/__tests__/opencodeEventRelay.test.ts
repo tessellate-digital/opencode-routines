@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 /**
  * Unit tests for opencodeEventRelay — drain mechanism and role-based filtering.
  */

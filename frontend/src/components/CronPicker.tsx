@@ -243,10 +243,10 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
             type="button"
             onClick={() => handleModeChange(id)}
             className={[
-              'rounded-full border px-3.5 py-1 text-sm font-medium transition-colors',
+              'rounded-full border px-3.5 py-1 text-[13px] font-medium transition-colors',
               mode === id
-                ? 'border-[#1d1d1f] bg-[#1d1d1f] text-white'
-                : 'border-[#d1d1d6] bg-white text-[#1d1d1f] hover:border-[#1d1d1f]',
+                ? 'border-accent bg-accent text-white'
+                : 'border-border/70 bg-surface/80 text-foreground hover:border-accent/40 hover:bg-accent-soft/50',
             ].join(' ')}
           >
             {l}
@@ -257,7 +257,7 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
       {/* Time input (hidden for Hourly and Custom) */}
       {mode !== 'hourly' && mode !== 'custom' && (
         <div>
-          <label className="mb-1 block text-xs text-[#6e6e73]">Time</label>
+          <label className="mb-1 block text-xs text-muted-foreground">Time</label>
           <input
             type="time"
             value={time}
@@ -270,7 +270,7 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
       {/* Custom expression input */}
       {mode === 'custom' && (
         <div>
-          <label className="mb-1 block text-xs text-[#6e6e73]">Cron expression</label>
+          <label className="mb-1 block text-xs text-muted-foreground">Cron expression</label>
           <input
             type="text"
             value={custom}
@@ -282,8 +282,10 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
       )}
 
       {/* Human-readable label */}
-      {presetLabel && <p className="text-xs text-[#6e6e73]">{presetLabel}</p>}
-      {mode === 'custom' && customDesc && <p className="text-xs text-[#6e6e73]">{customDesc}</p>}
+      {presetLabel && <p className="text-xs text-muted-foreground">{presetLabel}</p>}
+      {mode === 'custom' && customDesc && (
+        <p className="text-xs text-muted-foreground">{customDesc}</p>
+      )}
     </div>
   );
 }

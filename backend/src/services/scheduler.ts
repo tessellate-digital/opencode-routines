@@ -122,7 +122,7 @@ class SchedulerService {
 
     executor
       .startRun(runId, routine, routine.prompt)
-      .catch((err) => console.error(`Run ${runId} error:`, err));
+      .catch((err: unknown) => console.error(`Run ${runId} error:`, err));
   }
 }
 

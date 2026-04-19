@@ -68,6 +68,43 @@ export function initDb(): void {
   if (!routineColumns.includes('workspace_path')) {
     db.exec("ALTER TABLE routines ADD COLUMN workspace_path TEXT NOT NULL DEFAULT ''");
   }
+  // Migration: denormalize stats onto routines table
+  if (!routineColumns.includes('last_run_status')) {
+    db.exec('ALTER TABLE routines ADD COLUMN last_run_status TEXT DEFAULT NULL');
+    db.exec('ALTER TABLE routines ADD COLUMN triggers_count INTEGER NOT NULL DEFAULT 0');
+    // Back-fill existing data
+    db.exec(`
+      UPDATE routines SET
+        last_run_status = (SELECT status FROM runs WHERE routine_id = routines.id ORDER BY created_at DESC LIMIT 1),
+        triggers_count = (SELECT COUNT(*) FROM triggers WHERE routine_id = routines.id)
+    `);
+  }
+
+  // Trigger: update routine.last_run_status when a run's status changes to a terminal state
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS update_routine_last_run_status
+    AFTER UPDATE OF status ON runs
+    WHEN NEW.routine_id IS NOT NULL AND NEW.status IN ('success', 'failed', 'cancelled', 'lost')
+    BEGIN
+      UPDATE routines SET last_run_status = NEW.status WHERE id = NEW.routine_id;
+    END
+  `);
+
+  // Triggers: maintain routine.triggers_count when triggers are inserted/deleted
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS increment_triggers_count
+    AFTER INSERT ON triggers
+    BEGIN
+      UPDATE routines SET triggers_count = triggers_count + 1 WHERE id = NEW.routine_id;
+    END
+  `);
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS decrement_triggers_count
+    AFTER DELETE ON triggers
+    BEGIN
+      UPDATE routines SET triggers_count = triggers_count - 1 WHERE id = OLD.routine_id;
+    END
+  `);
 
   // Migration: make runs.routine_id nullable with ON DELETE SET NULL so that
   // deleting a routine preserves its run history.

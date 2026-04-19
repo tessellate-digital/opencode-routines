@@ -1,22 +1,17 @@
 import { Hono } from 'hono';
 import { randomUUID } from 'crypto';
 import { timingSafeEqual } from 'crypto';
-import { db } from '../database';
 import { executor } from '../services/executor';
 import { verifySignature, parseEvent } from '../services/github';
-import type { TriggerRow, RoutineRow } from '../types';
+import { triggersRepository } from '../repositories/triggersRepository';
+import { routinesRepository } from '../repositories/routinesRepository';
+import { runsRepository } from '../repositories/runsRepository';
 
 const router = new Hono();
 
 router.post('/api/:triggerId', async (c) => {
   const triggerId = c.req.param('triggerId');
-  const trigger = db
-    .prepare(
-      `
-    SELECT * FROM triggers WHERE id = ? AND type = 'api' AND enabled = 1
-  `
-    )
-    .get(triggerId) as TriggerRow | undefined;
+  const trigger = triggersRepository.findEnabledByIdAndType(triggerId, 'api');
   if (!trigger) {
     return c.json({ detail: 'Trigger not found' }, 404);
   }
@@ -41,9 +36,7 @@ router.post('/api/:triggerId', async (c) => {
     return c.json({ detail: 'Invalid token' }, 401);
   }
 
-  const routine = db
-    .prepare('SELECT * FROM routines WHERE id = ? AND enabled = 1')
-    .get(trigger.routine_id) as RoutineRow | undefined;
+  const routine = routinesRepository.findEnabledById(trigger.routine_id);
   if (!routine) {
     return c.json({ detail: 'Routine not found or disabled' }, 404);
   }
@@ -59,21 +52,15 @@ router.post('/api/:triggerId', async (c) => {
   const prompt = text ? `${routine.prompt}\n\nAdditional context:\n${text}` : routine.prompt;
 
   const runId = randomUUID();
-  const now = new Date().toISOString();
-  db.prepare(
-    `
-    INSERT INTO runs (id, routine_id, routine_name, trigger_id, trigger_type, prompt, status, metadata, created_at)
-    VALUES (?, ?, ?, ?, 'api', ?, 'pending', ?, ?)
-  `
-  ).run(
-    runId,
-    routine.id,
-    routine.name,
-    trigger.id,
+  runsRepository.create({
+    id: runId,
+    routineId: routine.id,
+    routineName: routine.name,
+    triggerId: trigger.id,
+    triggerType: 'api',
     prompt,
-    JSON.stringify(text ? { text } : {}),
-    now
-  );
+    metadata: text ? { text } : {},
+  });
 
   executor
     .startRun(runId, routine, prompt)
@@ -84,13 +71,7 @@ router.post('/api/:triggerId', async (c) => {
 
 router.post('/github/:triggerId', async (c) => {
   const triggerId = c.req.param('triggerId');
-  const trigger = db
-    .prepare(
-      `
-    SELECT * FROM triggers WHERE id = ? AND type = 'github' AND enabled = 1
-  `
-    )
-    .get(triggerId) as TriggerRow | undefined;
+  const trigger = triggersRepository.findEnabledByIdAndType(triggerId, 'github');
   if (!trigger) {
     return c.json({ detail: 'Trigger not found' }, 404);
   }
@@ -121,9 +102,7 @@ router.post('/github/:triggerId', async (c) => {
     });
   }
 
-  const routine = db
-    .prepare('SELECT * FROM routines WHERE id = ? AND enabled = 1')
-    .get(trigger.routine_id) as RoutineRow | undefined;
+  const routine = routinesRepository.findEnabledById(trigger.routine_id);
   if (!routine) {
     return c.json({ detail: 'Routine not found or disabled' }, 404);
   }
@@ -137,13 +116,15 @@ router.post('/github/:triggerId', async (c) => {
   const prompt = `${routine.prompt}\n\nGitHub event context:\n${contextLines.join('\n')}`;
 
   const runId = randomUUID();
-  const now = new Date().toISOString();
-  db.prepare(
-    `
-    INSERT INTO runs (id, routine_id, routine_name, trigger_id, trigger_type, prompt, status, metadata, created_at)
-    VALUES (?, ?, ?, ?, 'github', ?, 'pending', ?, ?)
-  `
-  ).run(runId, routine.id, routine.name, trigger.id, prompt, JSON.stringify(metadata), now);
+  runsRepository.create({
+    id: runId,
+    routineId: routine.id,
+    routineName: routine.name,
+    triggerId: trigger.id,
+    triggerType: 'github',
+    prompt,
+    metadata,
+  });
 
   executor
     .startRun(runId, routine, prompt)
@@ -154,13 +135,7 @@ router.post('/github/:triggerId', async (c) => {
 
 router.post('/watcher/:triggerId', async (c) => {
   const triggerId = c.req.param('triggerId');
-  const trigger = db
-    .prepare(
-      `
-    SELECT * FROM triggers WHERE id = ? AND type = 'watcher' AND enabled = 1
-  `
-    )
-    .get(triggerId) as TriggerRow | undefined;
+  const trigger = triggersRepository.findEnabledByIdAndType(triggerId, 'watcher');
   if (!trigger) {
     return c.json({ detail: 'Trigger not found' }, 404);
   }
@@ -204,9 +179,7 @@ router.post('/watcher/:triggerId', async (c) => {
     });
   }
 
-  const routine = db
-    .prepare('SELECT * FROM routines WHERE id = ? AND enabled = 1')
-    .get(trigger.routine_id) as RoutineRow | undefined;
+  const routine = routinesRepository.findEnabledById(trigger.routine_id);
   if (!routine) {
     return c.json({ detail: 'Routine not found or disabled' }, 404);
   }
@@ -215,13 +188,15 @@ router.post('/watcher/:triggerId', async (c) => {
   const metadata = { fs_event: fsEvent, fs_path: containerPath || fsPath };
 
   const runId = randomUUID();
-  const now = new Date().toISOString();
-  db.prepare(
-    `
-    INSERT INTO runs (id, routine_id, routine_name, trigger_id, trigger_type, prompt, status, metadata, created_at)
-    VALUES (?, ?, ?, ?, 'watcher', ?, 'pending', ?, ?)
-  `
-  ).run(runId, routine.id, routine.name, trigger.id, prompt, JSON.stringify(metadata), now);
+  runsRepository.create({
+    id: runId,
+    routineId: routine.id,
+    routineName: routine.name,
+    triggerId: trigger.id,
+    triggerType: 'watcher',
+    prompt,
+    metadata,
+  });
 
   executor
     .startRun(runId, routine, prompt)

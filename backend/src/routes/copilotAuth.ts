@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { db } from '../database';
+import { settingsRepository } from '../repositories/settingsRepository';
 import { invalidateAll } from '../services/opencodeServerPool';
 
 /**
@@ -105,13 +105,11 @@ router.get('/poll', async (c) => {
 
   // Success — store the token in the settings table
   if (data.access_token) {
-    const now = new Date().toISOString();
-    db.prepare(
-      `
-      INSERT INTO settings (key, value, is_secret, updated_at) VALUES (?, ?, 1, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value, is_secret = 1, updated_at = excluded.updated_at
-    `
-    ).run('GITHUB_TOKEN', data.access_token, now);
+    settingsRepository.upsert({
+      key: 'GITHUB_TOKEN',
+      value: data.access_token,
+      is_secret: true,
+    });
 
     // Invalidate pooled server contexts so the new token is picked up on the next run.
     void invalidateAll();

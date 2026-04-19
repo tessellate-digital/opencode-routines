@@ -3,25 +3,18 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { streamSSE } from 'hono/streaming';
 import { randomUUID } from 'crypto';
-import { db } from '../database';
 import { executor } from '../services/executor';
 import { eventBus } from '../services/eventBus';
-import { buildLegacyTranscript } from '../services/legacyTranscript';
-import type { RunRow, RoutineRow } from '../types';
+import { runsRepository } from '../repositories/runsRepository';
+import { routinesRepository } from '../repositories/routinesRepository';
+import type { RunRow } from '../types';
 
 const router = new Hono();
 
 function runToResponse(r: RunRow) {
   // Use the snapshotted name first; fall back to live lookup for older rows
   const routine_name =
-    r.routine_name ||
-    (r.routine_id
-      ? ((
-          db.prepare('SELECT name FROM routines WHERE id = ?').get(r.routine_id) as
-            | Pick<RoutineRow, 'name'>
-            | undefined
-        )?.name ?? '')
-      : '');
+    r.routine_name || (r.routine_id ? runsRepository.getRoutineName(r.routine_id) : '');
   return {
     id: r.id,
     routine_id: r.routine_id,
@@ -47,32 +40,12 @@ router.get('/', (c) => {
   const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '50', 10), 1), 200);
   const offset = Math.max(parseInt(c.req.query('offset') ?? '0', 10), 0);
 
-  let sql = 'SELECT * FROM runs';
-  const params: unknown[] = [];
-  const conditions: string[] = [];
-
-  if (routineId) {
-    conditions.push('routine_id = ?');
-    params.push(routineId);
-  }
-  if (status) {
-    conditions.push('status = ?');
-    params.push(status);
-  }
-  if (conditions.length) {
-    sql += ` WHERE ${conditions.join(' AND ')}`;
-  }
-  sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-  params.push(limit, offset);
-
-  const rows = db.prepare(sql).all(...params) as RunRow[];
+  const rows = runsRepository.findAll({ routineId, status, limit, offset });
   return c.json(rows.map(runToResponse));
 });
 
 router.get('/:id', (c) => {
-  const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(c.req.param('id')) as
-    | RunRow
-    | undefined;
+  const row = runsRepository.findById(c.req.param('id'));
   if (!row) {
     return c.json({ detail: 'Run not found' }, 404);
   }
@@ -81,7 +54,7 @@ router.get('/:id', (c) => {
 
 router.post('/:id/cancel', async (c) => {
   const runId = c.req.param('id');
-  const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
+  const row = runsRepository.findById(runId);
   if (!row) {
     return c.json({ detail: 'Run not found' }, 404);
   }
@@ -103,7 +76,7 @@ router.post('/:id/cancel', async (c) => {
 
 router.get('/:id/stream', async (c) => {
   const runId = c.req.param('id');
-  const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
+  const row = runsRepository.findById(runId);
   if (!row) {
     return c.json({ detail: 'Run not found' }, 404);
   }
@@ -120,7 +93,6 @@ router.get('/:id/stream', async (c) => {
             const evt = JSON.parse(line) as { type: string; data: string };
             await stream.writeSSE({ event: evt.type, data: evt.data });
           } catch {
-            // Legacy plain-text format fallback
             await stream.writeSSE({ event: 'text', data: line });
           }
         }
@@ -141,7 +113,7 @@ router.get('/:id/stream', async (c) => {
     // No active stream — the run may have finished between our initial status
     // check and this point (race with executor's close()), or the process died.
     // Re-read the DB to distinguish between the two cases.
-    const freshRow = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
+    const freshRow = runsRepository.findById(runId);
     if (freshRow && ['success', 'failed', 'cancelled', 'lost'].includes(freshRow.status)) {
       // Already finished — replay stored output (same as the finished-run path)
       return streamSSE(c, async (stream) => {
@@ -169,10 +141,7 @@ router.get('/:id/stream', async (c) => {
     }
 
     // Truly lost — process died without updating the DB
-    const now = new Date().toISOString();
-    db.prepare(
-      `UPDATE runs SET status = 'lost', finished_at = ? WHERE id = ? AND status = 'running'`
-    ).run(now, runId);
+    runsRepository.markAsLost(runId);
     return streamSSE(c, async (stream) => {
       await stream.writeSSE({
         event: 'done',
@@ -212,41 +181,19 @@ router.get('/:id/stream', async (c) => {
 // and returns the runs in chronological order (oldest first).
 router.get('/:id/thread', (c) => {
   const runId = c.req.param('id');
-  const startRow = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
-  if (!startRow) {
+  const chain = runsRepository.findParentChain(runId);
+  if (chain.length === 0) {
     return c.json({ detail: 'Run not found' }, 404);
   }
-
-  const chain: RunRow[] = [startRow];
-  let cur = startRow;
-  // Walk up the parent chain (safety limit to avoid infinite loops)
-  for (let i = 0; i < 50 && cur.parent_run_id; i++) {
-    const parent = db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as
-      | RunRow
-      | undefined;
-    if (!parent) {
-      break;
-    }
-    chain.unshift(parent);
-    cur = parent;
-  }
-
   return c.json(chain.map(runToResponse));
 });
 
 // Reply to a finished run — creates a new follow-up run linked via parent_run_id.
-//
-// SDK-backed runs (session_id IS NOT NULL):
-//   The existing session_id is passed to executor.startRun() so the SDK resumes
-//   the conversation natively.  No stdout history reconstruction is performed.
-//
-// Legacy runs (session_id IS NULL):
-//   The full ancestor chain is walked, a clean transcript is built from saved
-//   prompts + parsed stdout text events, and a synthetic prompt seeds a fresh
-//   SDK session.  The new session_id is stored only on the new run row.
+// The existing session_id is passed to executor.startRun() so the SDK resumes
+// the conversation natively.
 router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) })), async (c) => {
   const runId = c.req.param('id');
-  const row = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRow | undefined;
+  const row = runsRepository.findById(runId);
   if (!row) {
     return c.json({ detail: 'Run not found' }, 404);
   }
@@ -255,59 +202,27 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
     return c.json({ detail: 'Can only reply to finished runs' }, 409);
   }
 
-  const routine = row.routine_id
-    ? (db.prepare('SELECT * FROM routines WHERE id = ?').get(row.routine_id) as
-        | RoutineRow
-        | undefined)
-    : undefined;
+  if (!row.session_id) {
+    return c.json({ detail: 'Run has no session to reply to' }, 400);
+  }
+
+  const routine = row.routine_id ? routinesRepository.findById(row.routine_id) : undefined;
   if (!routine) {
     return c.json({ detail: 'Routine not found' }, 404);
   }
 
   const { text } = c.req.valid('json');
-
-  let promptForRun: string;
-  let existingSessionId: string | undefined;
-
-  if (row.session_id !== null) {
-    // ── SDK-backed path ──────────────────────────────────────────────────────
-    // The session already holds the conversation history; just send the new
-    // user message and reuse the same session.
-    promptForRun = text;
-    existingSessionId = row.session_id;
-  } else {
-    // ── Legacy path ──────────────────────────────────────────────────────────
-    // Walk the ancestor chain to reconstruct a clean text transcript.
-    const chain: RunRow[] = [];
-    let cur: RunRow | undefined = row;
-    while (cur) {
-      chain.unshift(cur);
-      cur = cur.parent_run_id
-        ? (db.prepare('SELECT * FROM runs WHERE id = ?').get(cur.parent_run_id) as
-            | RunRow
-            | undefined)
-        : undefined;
-    }
-
-    const transcript = buildLegacyTranscript(chain);
-    if (transcript) {
-      promptForRun = `Legacy conversation transcript:\n${transcript}\n\n--- User follow-up ---\n${text}`;
-    } else {
-      promptForRun = text;
-    }
-    // No existingSessionId — executor will create a fresh SDK session
-    existingSessionId = undefined;
-  }
-
   const newRunId = randomUUID();
-  const now = new Date().toISOString();
 
-  db.prepare(
-    `
-    INSERT INTO runs (id, routine_id, routine_name, trigger_type, prompt, parent_run_id, status, metadata, created_at)
-    VALUES (?, ?, ?, 'manual', ?, ?, 'pending', ?, ?)
-  `
-  ).run(newRunId, routine.id, routine.name, text, runId, JSON.stringify({ reply_to: runId }), now);
+  runsRepository.create({
+    id: newRunId,
+    routineId: routine.id,
+    routineName: routine.name,
+    triggerType: 'manual',
+    prompt: text,
+    parentRunId: runId,
+    metadata: { reply_to: runId },
+  });
 
   eventBus.broadcast('run_created', {
     run_id: newRunId,
@@ -315,7 +230,7 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
     status: 'pending',
   });
   executor
-    .startRun(newRunId, routine, promptForRun, existingSessionId)
+    .startRun(newRunId, routine, text, row.session_id)
     .catch((err) => console.error(`Reply run ${newRunId} error:`, err));
 
   return c.json({ run_id: newRunId }, 202);

@@ -31,83 +31,84 @@ export default function RoutinesList() {
     }, [load])
   );
 
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (error) return <p className="text-sm text-destructive">Error: {error}</p>;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#1d1d1f]">Routines</h1>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Routines</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {routines.length} routine{routines.length !== 1 ? 's' : ''}
+          </p>
+        </div>
         <Link to="/routines/new" className="btn btn-primary">
-          New Routine
+          + New Routine
         </Link>
       </div>
 
       {routines.length ? (
-        <div className="overflow-x-auto rounded-lg border border-[#d1d1d6]">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#d1d1d6] bg-[#f5f5f7] text-left text-xs font-medium text-[#6e6e73]">
-                <th className="px-4 py-2.5">Name</th>
-                <th className="px-4 py-2.5">Model</th>
-                <th className="px-4 py-2.5">Triggers</th>
-                <th className="px-4 py-2.5">Last run</th>
-                <th className="px-4 py-2.5">Enabled</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f0f0f0]">
-              {routines.map((r) => (
-                <tr
-                  key={r.id}
-                  tabIndex={0}
-                  className="cursor-pointer bg-white hover:bg-[#f5f5f7] outline-none focus-visible:bg-[#f5f5f7]"
-                  onClick={() => navigate(`/routines/${r.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      navigate(`/routines/${r.id}`);
-                    }
-                  }}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-[#1d1d1f]">{r.name}</span>
-                      {r.workspace_path && !r.workspace_accessible && (
-                        <span
-                          className="shrink-0 rounded-full bg-[#fff5f5] border border-[#ffc9c9] px-2 py-0.5 text-[10px] font-medium text-[#ff3b30]"
-                          title={`Workspace folder inaccessible: ${r.workspace_path}`}
-                        >
-                          Folder missing
-                        </span>
-                      )}
-                    </div>
-                    {r.description && (
-                      <div className="mt-0.5 text-xs text-[#6e6e73]">{r.description}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-[#6e6e73]">{r.model || 'default'}</td>
-                  <td className="px-4 py-3 text-[#6e6e73]">{r.triggers_count}</td>
-                  <td className="px-4 py-3">
-                    {r.last_run_status ? (
-                      <StatusBadge status={r.last_run_status} />
-                    ) : (
-                      <span className="text-[#6e6e73]">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={r.enabled ? 'text-[#34c759]' : 'text-[#6e6e73]'}>
-                      {r.enabled ? 'Yes' : 'No'}
+        <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/80 shadow-sm backdrop-blur-md">
+          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_0.6fr] border-b border-border/70 bg-surface/50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div>Name</div>
+            <div>Model</div>
+            <div>Triggers</div>
+            <div>Last run</div>
+            <div>Enabled</div>
+          </div>
+          {routines.map((r, i) => (
+            <div
+              key={r.id}
+              tabIndex={0}
+              className={`grid cursor-pointer grid-cols-[2fr_1fr_1fr_1fr_0.6fr] items-center px-4 py-3 text-[13px] transition-colors hover:bg-accent/5 focus-visible:bg-accent/5 focus-visible:outline-none ${i > 0 ? 'border-t border-border/70' : ''}`}
+              onClick={() => navigate(`/routines/${r.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(`/routines/${r.id}`);
+                }
+              }}
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">{r.name}</span>
+                  {r.workspace_path && !r.workspace_accessible && (
+                    <span
+                      className="shrink-0 rounded-full border border-destructive/30 bg-destructive-soft px-2 py-0.5 text-[10px] font-medium text-destructive"
+                      title={`Workspace folder inaccessible: ${r.workspace_path}`}
+                    >
+                      Folder missing
                     </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                </div>
+                {r.description && (
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">{r.description}</div>
+                )}
+              </div>
+              <div className="font-mono text-[12px] text-muted-foreground">
+                {r.model || 'default'}
+              </div>
+              <div className="text-muted-foreground">{r.triggers_count}</div>
+              <div>
+                {r.last_run_status ? (
+                  <StatusBadge status={r.last_run_status} />
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
+              <div>
+                <span className={r.enabled ? 'text-success font-medium' : 'text-muted-foreground'}>
+                  {r.enabled ? 'Yes' : 'No'}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
-        <p className="py-6 text-sm text-[#6e6e73]">
+        <p className="py-6 text-sm text-muted-foreground">
           No routines yet.{' '}
-          <Link to="/routines/new" className="text-[#0071e3] hover:underline">
+          <Link to="/routines/new" className="text-accent hover:underline">
             Create one
           </Link>{' '}
           to get started.

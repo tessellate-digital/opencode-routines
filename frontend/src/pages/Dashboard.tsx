@@ -33,42 +33,40 @@ export default function Dashboard() {
     }, [load])
   );
 
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (error) return <p className="text-sm text-destructive">Error: {error}</p>;
 
   const running = runs.filter((r) => r.status === 'running').length;
   const failed = runs.filter((r) => r.status === 'failed').length;
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#1d1d1f]">Dashboard</h1>
+      <div className="flex items-end justify-between">
+        <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Overview</h1>
         <Link to="/routines/new" className="btn btn-primary">
-          New Routine
+          + New Routine
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-px rounded-lg border border-[#d1d1d6] overflow-hidden bg-[#d1d1d6]">
+      <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-border/70 bg-surface/80 shadow-sm backdrop-blur-md">
         {[
-          {
-            label: 'Routines',
-            value: routines.length,
-            color: 'text-[#1d1d1f]',
-          },
-          { label: 'Running', value: running, color: 'text-[#0071e3]' },
-          { label: 'Recent failures', value: failed, color: 'text-[#ff3b30]' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white px-5 py-4">
-            <div className={`text-2xl font-semibold ${color}`}>{value}</div>
-            <div className="mt-0.5 text-xs text-[#6e6e73]">{label}</div>
+          { label: 'Routines', value: routines.length, color: 'text-foreground' },
+          { label: 'Running', value: running, color: 'text-accent' },
+          { label: 'Recent failures', value: failed, color: 'text-destructive' },
+        ].map(({ label, value, color }, i) => (
+          <div key={label} className={`px-6 py-5 ${i > 0 ? 'border-l border-border' : ''}`}>
+            <div className={`font-serif text-5xl leading-none ${color}`}>{value}</div>
+            <div className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">
+              {label}
+            </div>
           </div>
         ))}
       </div>
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[#1d1d1f]">Recent runs</h2>
-          <Link to="/runs" className="text-xs text-[#0071e3] hover:underline">
+          <h2 className="text-[14px] font-semibold text-foreground">Recent runs</h2>
+          <Link to="/runs" className="text-[12px] font-medium text-accent hover:underline">
             View all
           </Link>
         </div>
