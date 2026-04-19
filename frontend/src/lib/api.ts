@@ -74,6 +74,7 @@ export const api = {
     return request<Run[]>(`/runs${qs ? `?${qs}` : ''}`);
   },
   getRun: (id: string) => request<Run>(`/runs/${id}`),
+  getRunStats: () => request<{ running: number }>('/runs/stats'),
   getThread: (id: string) => request<Run[]>(`/runs/${id}/thread`),
   cancelRun: (id: string) =>
     request<{ status: string }>(`/runs/${id}/cancel`, {
@@ -107,18 +108,17 @@ export const api = {
     return request<FsResponse>(`/fs?path=${encodeURIComponent(dirPath)}`);
   },
 
-  // GitHub Copilot device flow
-  copilotDeviceCode: () =>
+  // GitHub Copilot OAuth via OpenCode SDK
+  copilotAuthorize: () =>
     request<{
-      device_code: string;
-      user_code: string;
-      verification_uri: string;
-      expires_in: number;
-      interval: number;
-    }>('/auth/github-copilot/device-code', { method: 'POST', body: '{}' }),
+      url: string;
+      instructions: string;
+      method: 'auto' | 'code';
+    }>('/auth/github-copilot/authorize', { method: 'POST', body: '{}' }),
 
-  copilotPoll: (deviceCode: string) =>
-    request<{ status: string; description?: string }>(
-      `/auth/github-copilot/poll?device_code=${encodeURIComponent(deviceCode)}`
-    ),
+  copilotCallback: () =>
+    request<{ status: string; error?: string }>('/auth/github-copilot/callback', {
+      method: 'POST',
+      body: '{}',
+    }),
 };

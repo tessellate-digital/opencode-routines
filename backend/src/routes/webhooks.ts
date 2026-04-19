@@ -6,6 +6,7 @@ import { verifySignature, parseEvent } from '../services/github';
 import { triggersRepository } from '../repositories/triggersRepository';
 import { routinesRepository } from '../repositories/routinesRepository';
 import { runsRepository } from '../repositories/runsRepository';
+import { logger } from '../util/logger';
 
 const router = new Hono();
 
@@ -64,7 +65,7 @@ router.post('/api/:triggerId', async (c) => {
 
   executor
     .startRun(runId, routine, prompt)
-    .catch((err) => console.error(`Run ${runId} error:`, err));
+    .catch((err) => logger.error(`Run ${runId} error:`, err));
 
   return c.json({ run_id: runId });
 });
@@ -128,7 +129,7 @@ router.post('/github/:triggerId', async (c) => {
 
   executor
     .startRun(runId, routine, prompt)
-    .catch((err) => console.error(`Run ${runId} error:`, err));
+    .catch((err) => logger.error(`Run ${runId} error:`, err));
 
   return c.json({ run_id: runId });
 });
@@ -200,7 +201,7 @@ router.post('/watcher/:triggerId', async (c) => {
 
   executor
     .startRun(runId, routine, prompt)
-    .catch((err) => console.error(`Run ${runId} error:`, err));
+    .catch((err) => logger.error(`Run ${runId} error:`, err));
 
   return c.json({ run_id: runId });
 });

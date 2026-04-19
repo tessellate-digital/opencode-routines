@@ -74,6 +74,7 @@ const stores = new Map<string, RunStore>();
  * Initialise per-run state.  Must be called before `push` or `connectStream`.
  */
 export function openRun(runId: string): void {
+  if (stores.has(runId)) return;
   stores.set(runId, {
     queue: new AsyncQueue<StreamEvent | null>(),
     history: [],
@@ -86,6 +87,10 @@ export function openRun(runId: string): void {
  * history, and persist it incrementally to `runs.stdout` as JSONL so late-
  * joining clients can replay the full transcript.
  *
+ * Special handling:
+ * - 'thinking' events: streamed to frontend but NOT persisted (ephemeral)
+ * - 'stats' events: persisted to metadata.stats, not stdout
+ *
  * Full transcripts are stored without truncation.
  */
 export function push(runId: string, event: StreamEvent): void {
@@ -94,11 +99,36 @@ export function push(runId: string, event: StreamEvent): void {
     return;
   }
 
-  store.history.push(event);
+  // Always stream to queue for live SSE consumers
   store.queue.push(event);
 
+  // Handle special event types
+  if (event.type === 'thinking') {
+    // Thinking tokens are ephemeral - stream only, don't persist or add to history
+    // (history is used for replay, and we don't want to replay thinking)
+    return;
+  }
+
+  if (event.type === 'stats') {
+    // Stats are persisted to metadata.stats, not stdout
+    try {
+      const stats = JSON.parse(event.data);
+      const row = db.prepare('SELECT metadata FROM runs WHERE id = ?').get(runId) as
+        | { metadata: string }
+        | undefined;
+      const metadata = JSON.parse(row?.metadata ?? '{}');
+      metadata.stats = stats;
+      db.prepare('UPDATE runs SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), runId);
+    } catch {
+      // Ignore stats persistence errors
+    }
+    // Don't add stats to history or stdout - it's metadata
+    return;
+  }
+
+  // Regular events: add to history and persist to stdout
+  store.history.push(event);
   store.stdoutLines.push(JSON.stringify(event));
-  // Persist incrementally — no 1 MB cap for SDK-backed runs.
   db.prepare('UPDATE runs SET stdout = ? WHERE id = ?').run(store.stdoutLines.join('\n'), runId);
 }
 

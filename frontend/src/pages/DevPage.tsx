@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 
 const AGENT_URL = 'http://localhost:3000';
@@ -203,7 +204,11 @@ export default function DevPage() {
                     <Row
                       label="Host path"
                       value={
-                        <code className={`text-xs ${!agent.pathResolved ? 'text-[#ff3b30]' : ''}`}>
+                        <code
+                          className={classNames('text-xs', {
+                            'text-[#ff3b30]': !agent.pathResolved,
+                          })}
+                        >
                           {agent.hostPath}
                         </code>
                       }
@@ -244,5 +249,9 @@ function Badge({
     red: 'bg-[#ffd7d5] text-[#cf222e]',
     yellow: 'bg-[#fff3cd] text-[#856404]',
   }[color];
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{children}</span>;
+  return (
+    <span className={classNames('rounded-full px-2 py-0.5 text-xs font-medium', cls)}>
+      {children}
+    </span>
+  );
 }

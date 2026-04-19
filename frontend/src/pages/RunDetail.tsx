@@ -2,12 +2,14 @@ import { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 import { useRunStream } from '../hooks/useSSE';
 import { StatusBadge } from '../components/RunsTable';
 import { duration } from '../lib/utils';
 import { useRunStore, type Segment } from '../stores/runStore';
 import type { Run } from '../lib/types';
+import { SiriOrb } from '../components/SiriOrb';
 
 function parseSegments(stdout: string): Segment[] {
   const segments: Segment[] = [];
@@ -54,8 +56,8 @@ function parseSegments(stdout: string): Segment[] {
 
 function UserBubble({ text }: { text: string }) {
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-accent px-4 py-3 text-[13px] leading-relaxed text-white shadow-md whitespace-pre-wrap">
+    <div className="flex justify-end mb-[14px]">
+      <div className="bg-[var(--accent)] text-[color:var(--accent-fg)] py-2.5 px-4 rounded-[20px] text-sm leading-[1.55] max-w-[480px] whitespace-pre-wrap">
         {text}
       </div>
     </div>
@@ -64,31 +66,18 @@ function UserBubble({ text }: { text: string }) {
 
 function ToolRow({ seg, onToggle }: { seg: Segment & { kind: 'tool' }; onToggle: () => void }) {
   return (
-    <div className="my-1">
+    <div className="mb-2">
       <button
         onClick={onToggle}
-        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-[5px] bg-transparent border-none py-0.5 px-0 font-mono text-[12.5px] text-[color:var(--fg-muted)] cursor-pointer"
       >
-        <span className="text-[10px] leading-none">{seg.open ? '▾' : '›'}</span>
-        <span>
-          Ran{' '}
-          <span className="rounded bg-accent/10 px-1 font-mono text-[11px] text-foreground">
-            {seg.name}
-          </span>
-        </span>
+        <span className="text-[10px] opacity-70">{seg.open ? '▼' : '›'}</span>
+        <span className="font-medium">{seg.name}</span>
       </button>
       {seg.open && (
-        <div className="mt-1 ml-5 space-y-1.5">
-          {seg.args && (
-            <pre className="overflow-auto max-h-48 rounded-lg border border-border/70 bg-muted px-3 py-2 text-[11px] font-mono text-foreground whitespace-pre-wrap">
-              {seg.args}
-            </pre>
-          )}
-          {seg.result && (
-            <pre className="overflow-auto max-h-48 rounded-lg border border-border/70 bg-muted px-3 py-2 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap">
-              {seg.result}
-            </pre>
-          )}
+        <div className="mt-1 bg-[var(--surface-hi)] border border-[var(--border)] rounded-lg py-3 px-[14px] font-mono text-xs text-[color:var(--fg-muted)] whitespace-pre-wrap leading-relaxed">
+          {seg.args && <div className={classNames({ 'mb-2': seg.result })}>{seg.args}</div>}
+          {seg.result && <div className="text-[color:var(--fg-dim)]">{seg.result}</div>}
         </div>
       )}
     </div>
@@ -98,7 +87,7 @@ function ToolRow({ seg, onToggle }: { seg: Segment & { kind: 'tool' }; onToggle:
 function AgentText({ content }: { content: string }) {
   if (!content.trim()) return null;
   return (
-    <div className="prose prose-sm max-w-none text-[13px] text-foreground leading-relaxed [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:rounded [&_code]:bg-accent/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[12px] [&_code]:font-mono [&_code]:text-foreground [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border/70 [&_pre]:bg-muted [&_pre]:px-3 [&_pre]:py-2 [&_pre]:overflow-auto [&_pre]:max-h-64 [&_strong]:font-semibold [&_em]:italic [&_table]:w-full [&_table]:text-[12px] [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-medium [&_td]:border [&_td]:border-border/70 [&_td]:px-2.5 [&_td]:py-1.5">
+    <div className="md text-sm leading-relaxed">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>
   );
@@ -106,40 +95,30 @@ function AgentText({ content }: { content: string }) {
 
 function ErrorBubble({ content }: { content: string }) {
   return (
-    <div className="rounded-lg border border-destructive/20 bg-destructive-soft px-3 py-2 text-[13px] text-destructive leading-relaxed whitespace-pre-wrap">
+    <div
+      className="py-2.5 px-[14px] rounded-[10px] text-[color:var(--status-failed)] text-[13px] font-mono whitespace-pre-wrap"
+      style={{
+        background: 'color-mix(in srgb, var(--status-failed) 10%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--status-failed) 25%, transparent)',
+      }}
+    >
       {content}
     </div>
   );
 }
 
-function ThinkingDots() {
-  return (
-    <div className="flex items-center gap-1.5 px-1 py-2">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="size-1.5 rounded-full bg-muted-foreground animate-bounce"
-          style={{ animationDelay: `${i * 150}ms` }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function StepDivider() {
-  return <div className="my-3 border-t border-border/70" />;
+  return <div className="divider" />;
 }
 
 function PromptContext({ context }: { context: string }) {
   return (
-    <details className="group">
-      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground list-none flex items-center gap-1">
-        <span className="group-open:rotate-90 transition-transform inline-block text-[10px]">
-          ›
-        </span>
+    <details>
+      <summary className="cursor-pointer text-xs text-[color:var(--fg-muted)] font-mono list-none flex items-center gap-1">
+        <span className="text-[10px]">›</span>
         Prompt context
       </summary>
-      <pre className="mt-1.5 rounded-lg border border-border/70 bg-muted px-3 py-2 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap overflow-auto max-h-48">
+      <pre className="mt-1.5 bg-[var(--surface-hi)] border border-[var(--border)] rounded-lg py-3 px-[14px] font-mono text-[11px] text-[color:var(--fg-muted)] whitespace-pre-wrap overflow-auto max-h-[200px]">
         {context.trim()}
       </pre>
     </details>
@@ -185,12 +164,15 @@ const AssistantCard = memo(function AssistantCard({
   const hasContent = segments.length > 0;
   if (!hasContent && !isStreaming) return null;
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-accent/20 bg-surface/90 p-5 backdrop-blur-sm">
-      <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-accent/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-accent-warm/10 blur-3xl" />
-      <div className="relative space-y-1.5 max-w-[90%]">
+    <div className="flex justify-start mb-[14px]">
+      <div className="bg-[var(--surface-hi)] border border-[var(--border)] py-3 px-4 rounded-2xl shadow-[var(--shadow-sm)] max-w-[640px] w-full">
         <SegmentList segments={segments} toggledTools={toggledTools} onToggleTool={onToggleTool} />
-        {isStreaming && <ThinkingDots />}
+        {isStreaming && (
+          <span className="status running text-[11px] mt-1.5 inline-flex">
+            <span className="dot" />
+            streaming
+          </span>
+        )}
       </div>
     </div>
   );
@@ -219,7 +201,7 @@ const ThreadItem = memo(function ThreadItem({
   );
 
   return (
-    <div className="space-y-3">
+    <div>
       {isFirst &&
         run.metadata?.prompt_context &&
         typeof run.metadata.prompt_context === 'string' && (
@@ -232,7 +214,7 @@ const ThreadItem = memo(function ThreadItem({
         onToggleTool={onToggleTool}
         isStreaming={isLast && isStreaming}
       />
-      {!isLast && <div className="border-b border-border/70" />}
+      {!isLast && <div className="divider" />}
     </div>
   );
 });
@@ -254,6 +236,7 @@ export default function RunDetail() {
     appendError,
     appendStep,
     updateRunStatus,
+    finalizeStream,
     toggleTool,
     toggleLiveTool,
     addReplyRun,
@@ -264,8 +247,10 @@ export default function RunDetail() {
   const [error, setError] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replying, setReplying] = useState(false);
+  const [orbExiting, setOrbExiting] = useState(false);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -292,9 +277,12 @@ export default function RunDetail() {
     load();
   }, [id]);
 
+  const scrollToBottom = () => {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [liveSegments]);
+    scrollToBottom();
+  }, [liveSegments, thread.length, isStreaming]);
 
   const latestRunId = thread[thread.length - 1]?.id;
 
@@ -322,9 +310,7 @@ export default function RunDetail() {
     onError: useCallback((data: string) => appendError(data), [appendError]),
     onStatus: useCallback(
       (data: string) => {
-        if (data.startsWith('--- step')) {
-          appendStep();
-        }
+        if (data.startsWith('--- step')) appendStep();
       },
       [appendStep]
     ),
@@ -344,11 +330,15 @@ export default function RunDetail() {
             );
           }
         } catch {
-          // ignore
+          /* ignore */
         }
-        setStreaming(false);
+        finalizeStream();
+        setOrbExiting(true);
+        setTimeout(() => {
+          setOrbExiting(false);
+        }, 300);
       },
-      [latestRunId, updateRunStatus, setStreaming]
+      [latestRunId, updateRunStatus, finalizeStream]
     ),
     onStreamError: useCallback(() => {
       setStreaming(false);
@@ -356,11 +346,15 @@ export default function RunDetail() {
   });
 
   const handleCancel = async () => {
-    if (!latestRunId || !confirm('Cancel this run?')) return;
+    if (!latestRunId) return;
     try {
       await api.cancelRun(latestRunId);
       updateRunStatus(latestRunId, 'cancelled', null, new Date().toISOString());
-      setStreaming(false);
+      setOrbExiting(true);
+      setTimeout(() => {
+        setStreaming(false);
+        setOrbExiting(false);
+      }, 300);
     } catch (e) {
       alert('Error: ' + (e instanceof Error ? e.message : 'Unknown'));
     }
@@ -372,6 +366,7 @@ export default function RunDetail() {
     const prompt = replyText.trim();
     setReplying(true);
     setReplyText('');
+    if (taRef.current) taRef.current.style.height = 'auto';
     try {
       const { run_id } = await api.replyToRun(latestRunId, prompt);
       addReplyRun(run_id, prompt, currentRun.routine_name, currentRun.routine_id);
@@ -384,66 +379,93 @@ export default function RunDetail() {
 
   const handleToggleTool = useCallback(
     (runId: string, idx: number, isLive: boolean) => {
-      if (isLive) {
-        toggleLiveTool(idx);
-      } else {
-        toggleTool(runId, idx);
-      }
+      if (isLive) toggleLiveTool(idx);
+      else toggleTool(runId, idx);
     },
     [toggleTool, toggleLiveTool]
   );
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading...</p>;
-  if (error) return <p className="text-sm text-destructive">Error: {error}</p>;
-  if (!thread.length) return <p className="text-sm text-destructive">Run not found</p>;
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setReplyText(e.target.value);
+    const ta = taRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
+    }
+  };
+
+  if (loading) return <p className="hint">Loading...</p>;
+  if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
+  if (!thread.length)
+    return <p className="text-[color:var(--status-failed)] text-[13px]">Run not found</p>;
 
   const currentRun = thread[thread.length - 1];
   const isFinished = ['success', 'failed', 'cancelled', 'lost'].includes(currentRun.status);
   const canReply = isFinished && currentRun.status !== 'lost';
   const inputDisabled = replying || isStreaming || currentRun.status === 'lost';
+  const showThinking = isStreaming || orbExiting;
 
   return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <div className="mb-6">
-        <Link to="/runs" className="text-xs text-accent hover:underline">
-          ← Runs
-        </Link>
-        <div className="mt-2 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[24px] font-semibold tracking-tight text-foreground">
-              {currentRun.routine_name}
-            </h1>
-            <div className="mt-1.5 flex items-center gap-2 text-[12px] text-muted-foreground">
-              <StatusBadge status={currentRun.status} />
-              <span>·</span>
-              <span className="font-mono capitalize">{currentRun.trigger_type}</span>
-              <span>·</span>
-              <span className="font-mono">
-                {duration(currentRun.started_at, currentRun.finished_at)}
-              </span>
-              {thread.length > 1 && (
-                <>
-                  <span>·</span>
-                  <span>{thread.length} turns</span>
-                </>
-              )}
-            </div>
+    <div className="route-fade">
+      <Link to="/runs" className="back">
+        <svg
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m10 3-5 5 5 5" />
+        </svg>
+        Runs
+      </Link>
+
+      <div className="page-head">
+        <div>
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <span className="mono text-xs text-[color:var(--fg-dim)]">
+              {currentRun.id.slice(0, 8)}
+            </span>
+            <span className="text-[color:var(--fg-dim)]">·</span>
+            <StatusBadge status={currentRun.status} />
+            <span className="text-[color:var(--fg-dim)]">·</span>
+            <span className="mono text-xs text-[color:var(--fg-dim)]">
+              {currentRun.trigger_type}
+            </span>
+            <span className="text-[color:var(--fg-dim)]">·</span>
+            <span className="mono text-xs text-[color:var(--fg-dim)]">
+              {duration(currentRun.started_at, currentRun.finished_at)}
+            </span>
+            {thread.length > 1 && (
+              <>
+                <span className="text-[color:var(--fg-dim)]">·</span>
+                <span className="text-xs text-[color:var(--fg-dim)]">{thread.length} turns</span>
+              </>
+            )}
           </div>
-          {currentRun.status === 'running' && (
-            <button onClick={handleCancel} className="btn btn-danger shrink-0">
-              Cancel
-            </button>
-          )}
+          <h1>{currentRun.routine_name}</h1>
+        </div>
+        <div className="flex gap-2">
+          <Link to={`/routines/${currentRun.routine_id}`} className="btn">
+            View routine
+          </Link>
         </div>
       </div>
 
-      {/* Conversation thread */}
-      <div className="space-y-4 pb-32">
+      {currentRun.status === 'lost' && (
+        <div className="delete-confirm mb-4 bg-[var(--surface-2)] border-[var(--border-hi)]">
+          <span className="font-semibold">Connection lost.</span> This run was interrupted — no
+          further interaction is possible.
+        </div>
+      )}
+
+      <div className="chat" ref={chatRef}>
         {thread.map((run, ti) => {
           const isLast = ti === thread.length - 1;
           const runToggled = toggledTools[run.id] ?? new Set<number>();
-
           return (
             <ThreadItem
               key={run.id}
@@ -457,78 +479,68 @@ export default function RunDetail() {
             />
           );
         })}
-        <div ref={bottomRef} />
+
+        {currentRun.stderr && isFinished && (
+          <details className="mb-2">
+            <summary className="cursor-pointer text-xs text-[color:var(--fg-muted)] font-mono list-none flex items-center gap-1">
+              <span className="text-[10px]">›</span>
+              Stderr output
+            </summary>
+            <pre className="mt-1.5 bg-[var(--surface-hi)] border border-[var(--border)] rounded-lg py-3 px-[14px] font-mono text-[11px] text-[color:var(--fg-muted)] whitespace-pre-wrap overflow-auto max-h-[200px]">
+              {currentRun.stderr}
+            </pre>
+          </details>
+        )}
       </div>
 
-      {/* Lost run banner */}
-      {currentRun.status === 'lost' && (
-        <div className="mb-4 rounded-xl border border-border/70 bg-surface/80 px-4 py-3 text-sm text-foreground backdrop-blur-sm">
-          <span className="font-medium">Connection lost.</span> This run was interrupted — the
-          process stopped responding before it could finish. No further interaction is possible.
-        </div>
-      )}
-
-      {/* Stderr */}
-      {currentRun.stderr && isFinished && (
-        <details className="group mb-4">
-          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground list-none flex items-center gap-1">
-            <span className="group-open:rotate-90 transition-transform inline-block text-[10px]">
-              ›
-            </span>
-            Stderr output
-          </summary>
-          <pre className="mt-2 rounded-lg border border-border/70 bg-muted px-3 py-2 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap overflow-auto max-h-48">
-            {currentRun.stderr}
-          </pre>
-        </details>
-      )}
-
-      {/* Chat input — always visible, disabled when streaming */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border/70 bg-canvas/90 backdrop-blur-md">
-        <form
-          onSubmit={handleReply}
-          className="mx-auto flex w-full max-w-5xl items-center gap-3 px-8 py-4"
-        >
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && canReply) {
-                  e.preventDefault();
-                  handleReply(e);
-                }
-              }}
-              placeholder={
-                isStreaming
-                  ? 'Waiting for response...'
-                  : currentRun.status === 'lost'
-                    ? 'Cannot reply — run was lost'
-                    : 'Follow up...'
-              }
-              className="w-full rounded-full border border-border/70 bg-surface/80 px-5 py-3 pr-14 text-[14px] text-foreground placeholder:text-muted-foreground/60 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-50 backdrop-blur-sm"
-              disabled={inputDisabled}
-            />
-            <button
-              type="submit"
-              disabled={inputDisabled || !replyText.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-foreground text-canvas transition-all hover:bg-foreground/80 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+      {/* Chat composer */}
+      <div className="flex justify-center mt-3">
+        <div className={classNames('chat-composer', { thinking: showThinking })}>
+          {showThinking ? (
+            <>
+              <div className={classNames({ 'orb-exit': orbExiting })}>
+                <SiriOrb size="42px" animationDuration={12} />
+              </div>
+              <button
+                className="btn sm danger ml-auto rounded-full shrink-0 whitespace-nowrap"
+                onClick={handleCancel}
               >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </form>
+                Stop
+              </button>
+            </>
+          ) : (
+            <div className={classNames('composer-input', { 'fade-in': !showThinking })}>
+              <textarea
+                ref={taRef}
+                placeholder={
+                  currentRun.status === 'lost'
+                    ? 'Cannot reply — run was lost'
+                    : 'Follow up, add context, or ask a question…'
+                }
+                value={replyText}
+                onChange={handleInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && canReply) {
+                    e.preventDefault();
+                    handleReply(e);
+                  }
+                }}
+                rows={1}
+                disabled={inputDisabled}
+              />
+              <button
+                className={classNames('btn primary rounded-full py-[9px] px-[18px] shrink-0', {
+                  'opacity-100': replyText.trim() && !inputDisabled,
+                  'opacity-45': !replyText.trim() || inputDisabled,
+                })}
+                onClick={(e) => handleReply(e)}
+                disabled={inputDisabled || !replyText.trim()}
+              >
+                Send
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,15 +1,53 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 import { useGlobalSSE } from '../hooks/useSSE';
 import { StatusBadge } from '../components/RunsTable';
 import type { Routine } from '../lib/types';
+
+function ChevronIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m6 3 5 5-5 5" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="m13 13-2.8-2.8" />
+    </svg>
+  );
+}
 
 export default function RoutinesList() {
   const navigate = useNavigate();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -31,88 +69,142 @@ export default function RoutinesList() {
     }, [load])
   );
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
-  if (error) return <p className="text-sm text-destructive">Error: {error}</p>;
+  if (loading) return <p className="hint">Loading…</p>;
+  if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
+
+  const filtered = routines
+    .filter((r) => {
+      if (filter === 'all') return true;
+      return r.last_run_status === filter;
+    })
+    .filter((r) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return r.name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
+    });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between">
+    <div className="route-fade">
+      <div className="page-head">
         <div>
-          <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Routines</h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
+          <h1>Routines</h1>
+          <div className="sub">
             {routines.length} routine{routines.length !== 1 ? 's' : ''}
-          </p>
+          </div>
         </div>
-        <Link to="/routines/new" className="btn btn-primary">
-          + New Routine
+        <Link to="/routines/new" className="btn primary">
+          + New routine
         </Link>
       </div>
 
-      {routines.length ? (
-        <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/80 shadow-sm backdrop-blur-md">
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_0.6fr] border-b border-border/70 bg-surface/50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <div>Name</div>
-            <div>Model</div>
-            <div>Triggers</div>
-            <div>Last run</div>
-            <div>Enabled</div>
-          </div>
-          {routines.map((r, i) => (
-            <div
-              key={r.id}
-              tabIndex={0}
-              className={`grid cursor-pointer grid-cols-[2fr_1fr_1fr_1fr_0.6fr] items-center px-4 py-3 text-[13px] transition-colors hover:bg-accent/5 focus-visible:bg-accent/5 focus-visible:outline-none ${i > 0 ? 'border-t border-border/70' : ''}`}
-              onClick={() => navigate(`/routines/${r.id}`)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  navigate(`/routines/${r.id}`);
-                }
-              }}
+      <div className="toolbar">
+        <div className="pills">
+          {['all', 'running', 'success', 'failed'].map((p) => (
+            <button
+              key={p}
+              className={classNames('pill', { active: filter === p })}
+              onClick={() => setFilter(p)}
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">{r.name}</span>
-                  {r.workspace_path && !r.workspace_accessible && (
-                    <span
-                      className="shrink-0 rounded-full border border-destructive/30 bg-destructive-soft px-2 py-0.5 text-[10px] font-medium text-destructive"
-                      title={`Workspace folder inaccessible: ${r.workspace_path}`}
-                    >
-                      Folder missing
-                    </span>
-                  )}
-                </div>
-                {r.description && (
-                  <div className="mt-0.5 text-[11px] text-muted-foreground">{r.description}</div>
-                )}
-              </div>
-              <div className="font-mono text-[12px] text-muted-foreground">
-                {r.model || 'default'}
-              </div>
-              <div className="text-muted-foreground">{r.triggers_count}</div>
-              <div>
-                {r.last_run_status ? (
-                  <StatusBadge status={r.last_run_status} />
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </div>
-              <div>
-                <span className={r.enabled ? 'text-success font-medium' : 'text-muted-foreground'}>
-                  {r.enabled ? 'Yes' : 'No'}
-                </span>
-              </div>
-            </div>
+              {p[0].toUpperCase() + p.slice(1)}
+            </button>
           ))}
         </div>
+        <div className="search">
+          <SearchIcon />
+          <input
+            placeholder="Search routines…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <span className="kbd">⌘K</span>
+        </div>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="card">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Routine</th>
+                <th>Model</th>
+                <th>Triggers</th>
+                <th>Last status</th>
+                <th>Enabled</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => (
+                <tr key={r.id} onClick={() => navigate(`/routines/${r.id}`)}>
+                  <td>
+                    <div className="primary-cell">
+                      {r.name}
+                      {r.workspace_path && !r.workspace_accessible && (
+                        <span className="ml-2 text-[10px] text-[color:var(--status-warning)] font-mono">
+                          folder missing
+                        </span>
+                      )}
+                    </div>
+                    {r.description && <div className="sub">{r.description}</div>}
+                  </td>
+                  <td>
+                    <span className="mono">{r.model || 'default'}</span>
+                  </td>
+                  <td>
+                    <span className="mono">{r.triggers_count}</span>
+                  </td>
+                  <td>
+                    {r.last_run_status ? (
+                      <StatusBadge status={r.last_run_status} />
+                    ) : (
+                      <span className="status pending">
+                        <span className="dot" />
+                        idle
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      className={classNames({
+                        'text-[color:var(--status-success)] font-medium': r.enabled,
+                        'text-[color:var(--fg-dim)] font-normal': !r.enabled,
+                      })}
+                    >
+                      {r.enabled ? 'Yes' : 'No'}
+                    </span>
+                  </td>
+                  <td className="chev">
+                    <ChevronIcon />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : routines.length === 0 ? (
+        <div className="card">
+          <div className="empty">
+            <div className="orb">
+              <svg viewBox="0 0 16 16" width="32" height="32" fill="currentColor" stroke="none">
+                <path d="M8 1.5 9.4 6 14 7.4 9.4 8.8 8 13.3 6.6 8.8 2 7.4 6.6 6 8 1.5z" />
+              </svg>
+            </div>
+            <h2>Nothing scheduled yet</h2>
+            <p>
+              Routines run a prompt when a trigger fires — on a schedule, or when files change. Set
+              your first one up in under a minute.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <Link to="/routines/new" className="btn primary">
+                + New routine
+              </Link>
+            </div>
+          </div>
+        </div>
       ) : (
-        <p className="py-6 text-sm text-muted-foreground">
-          No routines yet.{' '}
-          <Link to="/routines/new" className="text-accent hover:underline">
-            Create one
-          </Link>{' '}
-          to get started.
-        </p>
+        <div className="card">
+          <div className="p-12 text-center text-[color:var(--fg-muted)]">No routines match.</div>
+        </div>
       )}
     </div>
   );

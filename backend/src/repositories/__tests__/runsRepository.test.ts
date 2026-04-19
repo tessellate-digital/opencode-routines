@@ -4,11 +4,13 @@ const mocks = vi.hoisted(() => {
   const rows: Record<string, unknown> = {};
   const routineRows: Record<string, unknown> = {};
   const insertedRuns: unknown[][] = [];
+  const lastRunArgs: unknown[][] = [];
 
   return {
     rows,
     routineRows,
     insertedRuns,
+    lastRunArgs,
   };
 });
 
@@ -16,6 +18,12 @@ vi.mock('../../database', () => ({
   db: {
     prepare: (sql: string) => ({
       get: (id: unknown) => {
+        if (sql.includes('parent_run_id = ?')) {
+          // Find child query - return first child with matching parent_run_id
+          return Object.values(mocks.rows).find(
+            (r: unknown) => (r as { parent_run_id: string | null }).parent_run_id === id
+          );
+        }
         if (sql.includes('FROM runs WHERE')) {
           return mocks.rows[id as string];
         }
@@ -25,9 +33,18 @@ vi.mock('../../database', () => ({
         return undefined;
       },
       run: (...args: unknown[]) => {
+        mocks.lastRunArgs.push(args);
         if (sql.includes('INSERT INTO runs')) {
           mocks.insertedRuns.push(args);
         }
+        if (sql.includes("status = 'lost'") && sql.includes("IN ('running', 'pending')")) {
+          const stale = Object.values(mocks.rows).filter((r: unknown) => {
+            const status = (r as { status: string }).status;
+            return status === 'running' || status === 'pending';
+          });
+          return { changes: stale.length };
+        }
+        return { changes: 0 };
       },
       all: () => {
         if (sql.includes('FROM runs')) {
@@ -72,6 +89,7 @@ beforeEach(() => {
     delete mocks.routineRows[k];
   }
   mocks.insertedRuns.length = 0;
+  mocks.lastRunArgs.length = 0;
 });
 
 describe('runsRepository.findById', () => {
@@ -109,7 +127,7 @@ describe('runsRepository.findParentChain', () => {
     expect(result).toEqual([]);
   });
 
-  it('returns single run when no parent', () => {
+  it('returns single run when no parent or children', () => {
     const run = makeRun({ id: 'run-1', parent_run_id: null });
     mocks.rows['run-1'] = run;
 
@@ -119,7 +137,7 @@ describe('runsRepository.findParentChain', () => {
     expect(result[0]).toEqual(run);
   });
 
-  it('walks parent chain and returns runs in chronological order', () => {
+  it('walks UP to parents (oldest first)', () => {
     const run1 = makeRun({ id: 'run-1', parent_run_id: null });
     const run2 = makeRun({ id: 'run-2', parent_run_id: 'run-1' });
     const run3 = makeRun({ id: 'run-3', parent_run_id: 'run-2' });
@@ -127,12 +145,67 @@ describe('runsRepository.findParentChain', () => {
     mocks.rows['run-2'] = run2;
     mocks.rows['run-3'] = run3;
 
+    // Start from the last run, should find all parents
     const result = runsRepository.findParentChain('run-3');
 
     expect(result).toHaveLength(3);
     expect(result[0].id).toBe('run-1');
     expect(result[1].id).toBe('run-2');
     expect(result[2].id).toBe('run-3');
+  });
+
+  it('walks DOWN to children (replies)', () => {
+    const run1 = makeRun({ id: 'run-1', parent_run_id: null });
+    const run2 = makeRun({ id: 'run-2', parent_run_id: 'run-1' });
+    mocks.rows['run-1'] = run1;
+    mocks.rows['run-2'] = run2;
+
+    // Start from parent, should find child
+    const result = runsRepository.findParentChain('run-1');
+
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('run-1');
+    expect(result[1].id).toBe('run-2');
+  });
+
+  it('walks both UP and DOWN from middle of chain', () => {
+    const run1 = makeRun({ id: 'run-1', parent_run_id: null });
+    const run2 = makeRun({ id: 'run-2', parent_run_id: 'run-1' });
+    const run3 = makeRun({ id: 'run-3', parent_run_id: 'run-2' });
+    mocks.rows['run-1'] = run1;
+    mocks.rows['run-2'] = run2;
+    mocks.rows['run-3'] = run3;
+
+    // Start from middle, should find both parent and child
+    const result = runsRepository.findParentChain('run-2');
+
+    expect(result).toHaveLength(3);
+    expect(result[0].id).toBe('run-1');
+    expect(result[1].id).toBe('run-2');
+    expect(result[2].id).toBe('run-3');
+  });
+
+  it('returns full chain regardless of starting point', () => {
+    const run1 = makeRun({ id: 'run-1', parent_run_id: null });
+    const run2 = makeRun({ id: 'run-2', parent_run_id: 'run-1' });
+    const run3 = makeRun({ id: 'run-3', parent_run_id: 'run-2' });
+    const run4 = makeRun({ id: 'run-4', parent_run_id: 'run-3' });
+    mocks.rows['run-1'] = run1;
+    mocks.rows['run-2'] = run2;
+    mocks.rows['run-3'] = run3;
+    mocks.rows['run-4'] = run4;
+
+    // All starting points should return the same full chain
+    const fromFirst = runsRepository.findParentChain('run-1');
+    const fromSecond = runsRepository.findParentChain('run-2');
+    const fromThird = runsRepository.findParentChain('run-3');
+    const fromLast = runsRepository.findParentChain('run-4');
+
+    const expectedIds = ['run-1', 'run-2', 'run-3', 'run-4'];
+    expect(fromFirst.map((r) => r.id)).toEqual(expectedIds);
+    expect(fromSecond.map((r) => r.id)).toEqual(expectedIds);
+    expect(fromThird.map((r) => r.id)).toEqual(expectedIds);
+    expect(fromLast.map((r) => r.id)).toEqual(expectedIds);
   });
 });
 
@@ -149,6 +222,27 @@ describe('runsRepository.getRoutineName', () => {
     const result = runsRepository.getRoutineName('nonexistent');
 
     expect(result).toBe('');
+  });
+});
+
+describe('runsRepository.markStaleAsLost', () => {
+  it('returns count of stale runs marked as lost', () => {
+    mocks.rows['run-1'] = makeRun({ id: 'run-1', status: 'running' });
+    mocks.rows['run-2'] = makeRun({ id: 'run-2', status: 'pending' });
+    mocks.rows['run-3'] = makeRun({ id: 'run-3', status: 'success' });
+
+    const count = runsRepository.markStaleAsLost();
+
+    expect(count).toBe(2);
+  });
+
+  it('returns 0 when no stale runs exist', () => {
+    mocks.rows['run-1'] = makeRun({ id: 'run-1', status: 'success' });
+    mocks.rows['run-2'] = makeRun({ id: 'run-2', status: 'failed' });
+
+    const count = runsRepository.markStaleAsLost();
+
+    expect(count).toBe(0);
   });
 });
 

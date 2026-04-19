@@ -61,6 +61,10 @@ vi.mock('../../services/eventBus', () => ({
   eventBus: { broadcast: mocks.broadcast },
 }));
 
+vi.mock('../../services/runStreamStore', () => ({
+  openRun: vi.fn(),
+}));
+
 function makeRun(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: 'run-1',

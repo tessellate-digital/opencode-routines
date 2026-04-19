@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 import { useGlobalSSE } from '../hooks/useSSE';
 import { RunsTable } from '../components/RunsTable';
@@ -33,41 +34,50 @@ export default function Dashboard() {
     }, [load])
   );
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
-  if (error) return <p className="text-sm text-destructive">Error: {error}</p>;
+  if (loading) return <p className="hint">Loading…</p>;
+  if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
 
   const running = runs.filter((r) => r.status === 'running').length;
   const failed = runs.filter((r) => r.status === 'failed').length;
+  const success = runs.filter((r) => r.status === 'success').length;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-end justify-between">
-        <h1 className="text-[24px] font-semibold tracking-tight text-foreground">Overview</h1>
-        <Link to="/routines/new" className="btn btn-primary">
+    <div className="route-fade">
+      <div className="page-head">
+        <div>
+          <h1>Overview</h1>
+          <div className="sub">
+            {routines.length} routines · {runs.length} recent runs
+          </div>
+        </div>
+        <Link to="/routines/new" className="btn primary">
           + New Routine
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-border/70 bg-surface/80 shadow-sm backdrop-blur-md">
-        {[
-          { label: 'Routines', value: routines.length, color: 'text-foreground' },
-          { label: 'Running', value: running, color: 'text-accent' },
-          { label: 'Recent failures', value: failed, color: 'text-destructive' },
-        ].map(({ label, value, color }, i) => (
-          <div key={label} className={`px-6 py-5 ${i > 0 ? 'border-l border-border' : ''}`}>
-            <div className={`font-serif text-5xl leading-none ${color}`}>{value}</div>
-            <div className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">
-              {label}
-            </div>
+      <div className="stats grid-cols-3">
+        <div className="stat">
+          <div className="k">Routines</div>
+          <div className="v">{routines.length}</div>
+        </div>
+        <div className="stat">
+          <div className="k">Running</div>
+          <div className="v text-[color:var(--status-running)]">{running}</div>
+        </div>
+        <div className="stat">
+          <div className="k">Recent failures</div>
+          <div className={classNames('v', { 'text-[color:var(--status-failed)]': failed > 0 })}>
+            {failed}
           </div>
-        ))}
+          {success > 0 && <div className="d">{success} success</div>}
+        </div>
       </div>
 
       <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[14px] font-semibold text-foreground">Recent runs</h2>
-          <Link to="/runs" className="text-[12px] font-medium text-accent hover:underline">
-            View all
+        <div className="flex items-center justify-between mb-3">
+          <div className="section-h">Recent runs</div>
+          <Link to="/runs" className="font-mono text-xs text-[color:var(--accent)] no-underline">
+            View all →
           </Link>
         </div>
         <RunsTable runs={runs} />

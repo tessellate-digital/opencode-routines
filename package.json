@@ -2,7 +2,11 @@
   "name": "opencode-routines",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["backend", "frontend", "host-agent"],
+  "workspaces": [
+    "backend",
+    "frontend",
+    "host-agent"
+  ],
   "scripts": {
     "dev": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend",

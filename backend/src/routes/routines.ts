@@ -4,7 +4,9 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import { executor } from '../services/executor';
 import { eventBus } from '../services/eventBus';
+import * as runStreamStore from '../services/runStreamStore';
 import { routinesRepository } from '../repositories/routinesRepository';
+import { logger } from '../util/logger';
 import type { RoutineRow } from '../types';
 import { runsRepository } from '../repositories/runsRepository';
 import { RoutineCreateSchema, RoutineUpdateSchema, RunTriggerSchema } from '../types';
@@ -126,13 +128,15 @@ router.post('/:id/run', zValidator('json', RunTriggerSchema.partial()), async (c
     metadata: text ? { text } : {},
   });
 
+  runStreamStore.openRun(runId);
+
   eventBus.broadcast('run_created', {
     run_id: runId,
     routine_id: row.id,
     status: 'pending',
   });
 
-  executor.startRun(runId, row, prompt).catch((err) => console.error(`Run ${runId} error:`, err));
+  executor.startRun(runId, row, prompt).catch((err) => logger.error(`Run ${runId} error:`, err));
 
   return c.json({ run_id: runId }, 202);
 });

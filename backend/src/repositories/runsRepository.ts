@@ -46,25 +46,38 @@ export const runsRepository = {
     return db.prepare(sql).all(...params) as RunRow[];
   },
 
-  findParentChain(startId: string, maxDepth = 50): RunRow[] {
-    const startRow = this.findById(startId);
-    if (!startRow) {
-      return [];
-    }
+  findParentChain(startId: string): RunRow[] {
+    // Use recursive CTE to get entire thread in one query
+    // First find the root (walk up), then get all descendants (walk down)
+    const rows = db
+      .prepare(
+        `
+        WITH RECURSIVE
+          -- Find the root by walking up parent_run_id
+          ancestors AS (
+            SELECT * FROM runs WHERE id = ?
+            UNION ALL
+            SELECT r.* FROM runs r
+            JOIN ancestors a ON r.id = a.parent_run_id
+          ),
+          -- Get the root (the one with no parent)
+          root AS (
+            SELECT * FROM ancestors WHERE parent_run_id IS NULL
+            LIMIT 1
+          ),
+          -- Walk down from root to get all descendants
+          thread AS (
+            SELECT * FROM root
+            UNION ALL
+            SELECT r.* FROM runs r
+            JOIN thread t ON r.parent_run_id = t.id
+          )
+        SELECT * FROM thread ORDER BY created_at ASC
+        `
+      )
+      .all(startId) as RunRow[];
 
-    const chain: RunRow[] = [startRow];
-    let cur = startRow;
-
-    for (let i = 0; i < maxDepth && cur.parent_run_id; i++) {
-      const parent = this.findById(cur.parent_run_id);
-      if (!parent) {
-        break;
-      }
-      chain.unshift(parent);
-      cur = parent;
-    }
-
-    return chain;
+    return rows;
   },
 
   getRoutineName(routineId: string): string {
@@ -79,6 +92,23 @@ export const runsRepository = {
     db.prepare(
       `UPDATE runs SET status = 'lost', finished_at = ? WHERE id = ? AND status = 'running'`
     ).run(now, id);
+  },
+
+  markStaleAsLost(): number {
+    const now = new Date().toISOString();
+    const result = db
+      .prepare(
+        `UPDATE runs SET status = 'lost', finished_at = ? WHERE status IN ('running', 'pending')`
+      )
+      .run(now);
+    return result.changes;
+  },
+
+  countByStatus(status: string): number {
+    const row = db.prepare('SELECT COUNT(*) as count FROM runs WHERE status = ?').get(status) as {
+      count: number;
+    };
+    return row.count;
   },
 
   create(params: CreateRunParams): void {

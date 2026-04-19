@@ -5,8 +5,10 @@ import { streamSSE } from 'hono/streaming';
 import { randomUUID } from 'crypto';
 import { executor } from '../services/executor';
 import { eventBus } from '../services/eventBus';
+import * as runStreamStore from '../services/runStreamStore';
 import { runsRepository } from '../repositories/runsRepository';
 import { routinesRepository } from '../repositories/routinesRepository';
+import { logger } from '../util/logger';
 import type { RunRow } from '../types';
 
 const router = new Hono();
@@ -42,6 +44,10 @@ router.get('/', (c) => {
 
   const rows = runsRepository.findAll({ routineId, status, limit, offset });
   return c.json(rows.map(runToResponse));
+});
+
+router.get('/stats', (c) => {
+  return c.json({ running: runsRepository.countByStatus('running') });
 });
 
 router.get('/:id', (c) => {
@@ -224,6 +230,8 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
     metadata: { reply_to: runId },
   });
 
+  runStreamStore.openRun(newRunId);
+
   eventBus.broadcast('run_created', {
     run_id: newRunId,
     routine_id: routine.id,
@@ -231,7 +239,7 @@ router.post('/:id/reply', zValidator('json', z.object({ text: z.string().min(1) 
   });
   executor
     .startRun(newRunId, routine, text, row.session_id)
-    .catch((err) => console.error(`Reply run ${newRunId} error:`, err));
+    .catch((err) => logger.error(`Reply run ${newRunId} error:`, err));
 
   return c.json({ run_id: newRunId }, 202);
 });
