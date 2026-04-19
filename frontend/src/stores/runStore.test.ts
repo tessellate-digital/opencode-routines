@@ -14,7 +14,7 @@ const mockRun = (overrides: Partial<Run> = {}): Run => ({
   started_at: '2026-01-01T00:00:00Z',
   finished_at: '2026-01-01T00:01:00Z',
   exit_code: 0,
-  stdout: '',
+  stdout: [],
   stderr: '',
   metadata: {},
   created_at: '2026-01-01T00:00:00Z',

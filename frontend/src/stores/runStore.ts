@@ -110,20 +110,17 @@ export const useRunStore = create<RunStore>((set, get) => ({
     if (thread.length === 0) return;
 
     const lastRun = thread[thread.length - 1];
-    const stdoutLines = liveSegments
-      .map((seg) => {
-        if (seg.kind === 'text') return JSON.stringify({ type: 'text', data: seg.content });
-        if (seg.kind === 'tool')
-          return JSON.stringify({ type: 'tool', data: `[tool: ${seg.name}]\n${seg.args}` });
-        if (seg.kind === 'error') return JSON.stringify({ type: 'error', data: seg.content });
-        if (seg.kind === 'step') return JSON.stringify({ type: 'status', data: '--- step ---' });
-        return '';
-      })
-      .filter(Boolean)
-      .join('\n');
+    const stdout: Array<{ type: string; data: string }> = [];
+    for (const seg of liveSegments) {
+      if (seg.kind === 'text') stdout.push({ type: 'text', data: seg.content });
+      else if (seg.kind === 'tool')
+        stdout.push({ type: 'tool', data: `[tool: ${seg.name}]\n${seg.args}` });
+      else if (seg.kind === 'error') stdout.push({ type: 'error', data: seg.content });
+      else if (seg.kind === 'step') stdout.push({ type: 'status', data: '--- step ---' });
+    }
 
     set({
-      thread: thread.map((run) => (run.id === lastRun.id ? { ...run, stdout: stdoutLines } : run)),
+      thread: thread.map((run) => (run.id === lastRun.id ? { ...run, stdout } : run)),
       liveSegments: [],
       isStreaming: false,
     });
@@ -162,7 +159,7 @@ export const useRunStore = create<RunStore>((set, get) => ({
       started_at: new Date().toISOString(),
       finished_at: null,
       exit_code: null,
-      stdout: '',
+      stdout: [],
       stderr: '',
       metadata: {},
       created_at: new Date().toISOString(),

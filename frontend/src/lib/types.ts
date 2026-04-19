@@ -41,7 +41,7 @@ export interface Run {
   started_at: string | null;
   finished_at: string | null;
   exit_code: number | null;
-  stdout: string;
+  stdout: Array<{ type: string; data: string }>;
   stderr: string;
   metadata: Record<string, unknown>;
   created_at: string;

@@ -104,6 +104,12 @@ export const runsRepository = {
     return result.changes;
   },
 
+  findRunningByRoutineId(routineId: string): RunRow[] {
+    return db
+      .prepare("SELECT * FROM runs WHERE routine_id = ? AND status IN ('running', 'pending')")
+      .all(routineId) as RunRow[];
+  },
+
   countByStatus(status: string): number {
     const row = db.prepare('SELECT COUNT(*) as count FROM runs WHERE status = ?').get(status) as {
       count: number;

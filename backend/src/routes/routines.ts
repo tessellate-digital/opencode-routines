@@ -66,9 +66,10 @@ router.get('/:id', (c) => {
   return c.json(routineToResponse(row));
 });
 
-router.put('/:id', zValidator('json', RoutineUpdateSchema), (c) => {
+router.put('/:id', zValidator('json', RoutineUpdateSchema), async (c) => {
   const id = c.req.param('id');
-  if (!routinesRepository.findById(id)) {
+  const existing = routinesRepository.findById(id);
+  if (!existing) {
     return c.json({ detail: 'Routine not found' }, 404);
   }
 
@@ -76,6 +77,16 @@ router.put('/:id', zValidator('json', RoutineUpdateSchema), (c) => {
   const updated = routinesRepository.update(id, data);
   const response = routineToResponse(updated);
   eventBus.broadcast('routine_updated', { routine: response });
+
+  const wasEnabled = existing.enabled === 1;
+  const isNowDisabled = data.enabled === false;
+  if (wasEnabled && isNowDisabled) {
+    const activeRuns = runsRepository.findRunningByRoutineId(id);
+    for (const run of activeRuns) {
+      await executor.cancelRun(run.id);
+    }
+  }
+
   return c.json(response);
 });
 

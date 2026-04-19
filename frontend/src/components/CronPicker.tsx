@@ -50,8 +50,9 @@ function toMode(expr: string): Mode {
   const normalized = normalizeCron(expr);
   const parts = normalized.split(/\s+/);
   if (parts.length !== 5) return 'custom';
-  const [, , dom, month, dow] = parts;
+  const [min, hour, dom, month, dow] = parts;
   if (dom !== '*' || month !== '*') return 'custom';
+  if (!/^\d+$/.test(min) || !/^\d+$/.test(hour)) return 'custom';
   if (dow === '1-5') return 'weekdays';
   if (dow === '0') return 'weekly';
   if (dow === '*') return 'daily';

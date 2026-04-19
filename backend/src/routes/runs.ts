@@ -13,6 +13,25 @@ import type { RunRow } from '../types';
 
 const router = new Hono();
 
+function parseStdout(raw: string): Array<{ type: string; data: string }> {
+  if (!raw) {
+    return [];
+  }
+  const events: Array<{ type: string; data: string }> = [];
+  for (const line of raw.split('\n')) {
+    if (!line) {
+      continue;
+    }
+    try {
+      const evt = JSON.parse(line) as { type: string; data: string };
+      events.push(evt);
+    } catch {
+      events.push({ type: 'text', data: line });
+    }
+  }
+  return events;
+}
+
 function runToResponse(r: RunRow) {
   // Use the snapshotted name first; fall back to live lookup for older rows
   const routine_name =
@@ -29,7 +48,7 @@ function runToResponse(r: RunRow) {
     started_at: r.started_at,
     finished_at: r.finished_at,
     exit_code: r.exit_code,
-    stdout: r.stdout,
+    stdout: parseStdout(r.stdout),
     stderr: r.stderr,
     metadata: JSON.parse(r.metadata) as Record<string, unknown>,
     created_at: r.created_at,

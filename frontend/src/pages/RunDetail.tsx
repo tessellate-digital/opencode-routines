@@ -10,48 +10,70 @@ import { duration } from '../lib/utils';
 import { useRunStore, type Segment } from '../stores/runStore';
 import type { Run } from '../lib/types';
 import { SiriOrb } from '../components/SiriOrb';
+import { TodoBox, type TodoItem } from '../components/TodoBox';
 
-function parseSegments(stdout: string): Segment[] {
+function parseSegments(events: Array<{ type: string; data: string }>): Segment[] {
   const segments: Segment[] = [];
-  for (const line of stdout.split('\n')) {
-    if (!line) continue;
-    try {
-      const evt = JSON.parse(line) as { type: string; data: string };
-      if (evt.type === 'text') {
-        const last = segments[segments.length - 1];
-        if (last?.kind === 'text') {
-          last.content += evt.data;
-        } else {
-          segments.push({ kind: 'text', content: evt.data });
-        }
-      } else if (evt.type === 'tool') {
-        const firstNewline = evt.data.indexOf('\n');
-        const header = firstNewline === -1 ? evt.data : evt.data.slice(0, firstNewline);
-        const args = firstNewline === -1 ? '' : evt.data.slice(firstNewline + 1).trim();
-        const name = header
-          .replace(/^\[tool:\s*/, '')
-          .replace(/\]$/, '')
-          .trim();
-        segments.push({ kind: 'tool', name, args, result: '', open: false });
-      } else if (evt.type === 'tool_result') {
-        const last = [...segments].reverse().find((s) => s.kind === 'tool');
-        if (last && last.kind === 'tool')
-          last.result = evt.data.replace(/^\[result\]\n?/, '').trim();
-      } else if (evt.type === 'error') {
-        segments.push({ kind: 'error', content: evt.data });
-      } else if (evt.type === 'status' && evt.data.startsWith('--- step') && segments.length > 0) {
-        segments.push({ kind: 'step', label: '' });
-      }
-    } catch {
+  for (const evt of events) {
+    if (evt.type === 'text') {
       const last = segments[segments.length - 1];
       if (last?.kind === 'text') {
-        last.content += line;
+        last.content += evt.data;
       } else {
-        segments.push({ kind: 'text', content: line });
+        segments.push({ kind: 'text', content: evt.data });
       }
+    } else if (evt.type === 'tool') {
+      const firstNewline = evt.data.indexOf('\n');
+      const header = firstNewline === -1 ? evt.data : evt.data.slice(0, firstNewline);
+      const args = firstNewline === -1 ? '' : evt.data.slice(firstNewline + 1).trim();
+      const name = header
+        .replace(/^\[tool:\s*/, '')
+        .replace(/\]$/, '')
+        .trim();
+      segments.push({ kind: 'tool', name, args, result: '', open: false });
+    } else if (evt.type === 'tool_result') {
+      const last = [...segments].reverse().find((s) => s.kind === 'tool');
+      if (last && last.kind === 'tool') {
+        last.result = evt.data.replace(/^\[result\]\n?/, '').trim();
+      }
+    } else if (evt.type === 'error') {
+      segments.push({ kind: 'error', content: evt.data });
+    } else if (evt.type === 'status' && evt.data.startsWith('--- step') && segments.length > 0) {
+      segments.push({ kind: 'step', label: '' });
     }
   }
   return segments;
+}
+
+function extractTodos(segments: Segment[]): TodoItem[] {
+  let latest: TodoItem[] = [];
+  for (const seg of segments) {
+    if (seg.kind !== 'tool' || seg.name !== 'todowrite') continue;
+    try {
+      const parsed = JSON.parse(seg.args);
+      const items = Array.isArray(parsed.todos) ? parsed.todos : Array.isArray(parsed) ? parsed : [];
+      latest = items.map((t: { content: string; status: string; priority?: string }) => ({
+        content: t.content,
+        status: t.status as TodoItem['status'],
+        priority: t.priority as TodoItem['priority'],
+      }));
+    } catch {
+      // If args aren't valid JSON, try extracting from result
+      if (seg.result) {
+        try {
+          const items = JSON.parse(seg.result);
+          if (Array.isArray(items)) {
+            latest = items.map((t: { content: string; status: string; priority?: string }) => ({
+              content: t.content,
+              status: t.status as TodoItem['status'],
+              priority: t.priority as TodoItem['priority'],
+            }));
+          }
+        } catch { /* ignore */ }
+      }
+    }
+  }
+  return latest;
 }
 
 function UserBubble({ text }: { text: string }) {
@@ -196,7 +218,7 @@ const ThreadItem = memo(function ThreadItem({
   onToggleTool: (idx: number) => void;
 }) {
   const segments = useMemo(
-    () => (isLast && isStreaming ? liveSegments : parseSegments(run.stdout || '')),
+    () => (isLast && isStreaming ? liveSegments : parseSegments(run.stdout || [])),
     [isLast, isStreaming, liveSegments, run.stdout]
   );
 
@@ -405,6 +427,15 @@ export default function RunDetail() {
   const inputDisabled = replying || isStreaming || currentRun.status === 'lost';
   const showThinking = isStreaming || orbExiting;
 
+  const todos = useMemo(() => {
+    const allSegments: Segment[] = [];
+    for (const run of thread) {
+      allSegments.push(...parseSegments(run.stdout || []));
+    }
+    allSegments.push(...liveSegments);
+    return extractTodos(allSegments);
+  }, [thread, liveSegments]);
+
   return (
     <div className="route-fade">
       <Link to="/runs" className="back">
@@ -542,6 +573,7 @@ export default function RunDetail() {
           )}
         </div>
       </div>
+      <TodoBox items={todos} />
     </div>
   );
 }
