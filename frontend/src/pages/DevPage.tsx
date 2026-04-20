@@ -64,11 +64,15 @@ export default function DevPage() {
           try {
             const r = await api.getRoutine(rid);
             routineMap.set(rid, { id: r.id, name: r.name, enabled: r.enabled });
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
         setRoutines(routineMap);
       }
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   }, []);
 
   useEffect(() => {
@@ -103,9 +107,8 @@ export default function DevPage() {
   });
 
   // Find agent watchers that aren't in the DB (orphaned)
-  const orphanedWatchers = agentData?.watchers.filter(
-    (w) => !dbTriggers.some((t) => t.id === w.triggerId)
-  ) ?? [];
+  const orphanedWatchers =
+    agentData?.watchers.filter((w) => !dbTriggers.some((t) => t.id === w.triggerId)) ?? [];
 
   return (
     <div className="space-y-6">
@@ -142,9 +145,7 @@ export default function DevPage() {
               label="Volume mounts"
               value={
                 Object.keys(agentData.volumeMounts).length === 0 ? (
-                  <span className="text-[#ff3b30]">
-                    None parsed — check docker-compose.yml
-                  </span>
+                  <span className="text-[#ff3b30]">None parsed — check docker-compose.yml</span>
                 ) : (
                   <span className="font-mono text-xs">
                     {Object.entries(agentData.volumeMounts).map(([c, h]) => (
@@ -186,10 +187,15 @@ export default function DevPage() {
                 | undefined;
 
               return (
-                <div key={trigger.id} className="rounded-lg border border-[var(--border)] overflow-hidden">
+                <div
+                  key={trigger.id}
+                  className="rounded-lg border border-[var(--border)] overflow-hidden"
+                >
                   <div className="flex items-center justify-between bg-[var(--surface)] px-4 py-2">
                     <div className="flex items-center gap-2 text-sm flex-wrap">
-                      <span className="font-medium">{routine?.name ?? trigger.routine_id.slice(0, 8)}</span>
+                      <span className="font-medium">
+                        {routine?.name ?? trigger.routine_id.slice(0, 8)}
+                      </span>
                       {agent ? (
                         agent.watching ? (
                           <Badge color="green">Watching</Badge>
@@ -215,18 +221,17 @@ export default function DevPage() {
                     </button>
                   </div>
                   <div className="divide-y divide-[var(--border)] text-sm">
-                    <Row label="Trigger ID" value={<code className="text-xs font-mono">{trigger.id}</code>} />
+                    <Row
+                      label="Trigger ID"
+                      value={<code className="text-xs font-mono">{trigger.id}</code>}
+                    />
                     <Row
                       label="Routine ID"
                       value={<code className="text-xs font-mono">{trigger.routine_id}</code>}
                     />
                     <Row
                       label="Container paths"
-                      value={
-                        <code className="text-xs font-mono">
-                          {paths.join(', ') || '—'}
-                        </code>
-                      }
+                      value={<code className="text-xs font-mono">{paths.join(', ') || '—'}</code>}
                     />
                     <Row
                       label="Host paths"
@@ -236,7 +241,7 @@ export default function DevPage() {
                             'text-[#ff3b30]': agent && agent.hostPaths.length === 0,
                           })}
                         >
-                          {agent ? (agent.hostPaths.join(', ') || '—') : '(agent offline)'}
+                          {agent ? agent.hostPaths.join(', ') || '—' : '(agent offline)'}
                         </code>
                       }
                     />
@@ -246,39 +251,54 @@ export default function DevPage() {
                         events.length > 0 ? (
                           <span className="flex gap-1 flex-wrap justify-end">
                             {events.map((e) => (
-                              <span key={e} className="trig text-[11px]">{e}</span>
+                              <span key={e} className="trig text-[11px]">
+                                {e}
+                              </span>
                             ))}
                           </span>
-                        ) : '—'
+                        ) : (
+                          '—'
+                        )
                       }
                     />
                     <Row label="Recursive" value={recursive ? 'Yes' : 'No'} />
-                    {fileFilter && fileFilter.mode !== 'none' && fileFilter.patterns && fileFilter.patterns.length > 0 && (
-                      <Row
-                        label={`File filter (${fileFilter.mode})`}
-                        value={
-                          <span className="flex gap-1 flex-wrap justify-end">
-                            {fileFilter.patterns.map((p) => (
-                              <span key={p} className="code-chip text-[11px]">{p}</span>
-                            ))}
-                          </span>
-                        }
-                      />
-                    )}
+                    {fileFilter &&
+                      fileFilter.mode !== 'none' &&
+                      fileFilter.patterns &&
+                      fileFilter.patterns.length > 0 && (
+                        <Row
+                          label={`File filter (${fileFilter.mode})`}
+                          value={
+                            <span className="flex gap-1 flex-wrap justify-end">
+                              {fileFilter.patterns.map((p) => (
+                                <span key={p} className="code-chip text-[11px]">
+                                  {p}
+                                </span>
+                              ))}
+                            </span>
+                          }
+                        />
+                      )}
                   </div>
                 </div>
               );
             })}
 
             {orphanedWatchers.map((w) => (
-              <div key={w.triggerId} className="rounded-lg border border-[var(--border)] overflow-hidden opacity-60">
+              <div
+                key={w.triggerId}
+                className="rounded-lg border border-[var(--border)] overflow-hidden opacity-60"
+              >
                 <div className="flex items-center gap-2 bg-[var(--surface)] px-4 py-2 text-sm">
                   <span className="font-medium">{w.triggerId.slice(0, 8)}…</span>
                   <Badge color="yellow">Orphaned (not in DB)</Badge>
                   {w.watching && <Badge color="green">Watching</Badge>}
                 </div>
                 <div className="divide-y divide-[var(--border)] text-sm">
-                  <Row label="Host paths" value={<code className="text-xs font-mono">{w.hostPaths.join(', ')}</code>} />
+                  <Row
+                    label="Host paths"
+                    value={<code className="text-xs font-mono">{w.hostPaths.join(', ')}</code>}
+                  />
                   <Row label="Events" value={w.events.join(', ')} />
                 </div>
               </div>

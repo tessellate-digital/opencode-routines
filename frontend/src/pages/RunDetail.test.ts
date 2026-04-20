@@ -50,7 +50,11 @@ function extractTodos(segments: Segment[]): TodoItem[] {
     if (seg.kind !== 'tool' || seg.name !== 'todowrite') continue;
     try {
       const parsed = JSON.parse(seg.args);
-      const items = Array.isArray(parsed.todos) ? parsed.todos : Array.isArray(parsed) ? parsed : [];
+      const items = Array.isArray(parsed.todos)
+        ? parsed.todos
+        : Array.isArray(parsed)
+          ? parsed
+          : [];
       latest = items.map((t: { content: string; status: string; priority?: string }) => ({
         content: t.content,
         status: t.status as TodoItem['status'],
@@ -67,7 +71,9 @@ function extractTodos(segments: Segment[]): TodoItem[] {
               priority: t.priority as TodoItem['priority'],
             }));
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
   }
@@ -177,7 +183,13 @@ describe('parseSegments', () => {
     const result = parseSegments(events);
     expect(result).toHaveLength(7);
     expect(result.map((s) => s.kind)).toEqual([
-      'text', 'tool', 'step', 'text', 'tool', 'text', 'error',
+      'text',
+      'tool',
+      'step',
+      'text',
+      'tool',
+      'text',
+      'error',
     ]);
   });
 });
@@ -251,9 +263,7 @@ describe('extractTodos', () => {
         kind: 'tool',
         name: 'todowrite',
         args: 'not json',
-        result: JSON.stringify([
-          { content: 'From result', status: 'pending', priority: 'high' },
-        ]),
+        result: JSON.stringify([{ content: 'From result', status: 'pending', priority: 'high' }]),
         open: false,
       },
     ];

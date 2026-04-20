@@ -74,7 +74,9 @@ const stores = new Map<string, RunStore>();
  * Initialise per-run state.  Must be called before `push` or `connectStream`.
  */
 export function openRun(runId: string): void {
-  if (stores.has(runId)) return;
+  if (stores.has(runId)) {
+    return;
+  }
   stores.set(runId, {
     queue: new AsyncQueue<StreamEvent | null>(),
     history: [],

@@ -33,7 +33,10 @@ export default function Layout() {
     <div className="min-h-screen relative before:content-[''] before:fixed before:inset-0 before:[background-image:var(--bg-dots)] before:[background-size:18px_18px] before:pointer-events-none before:z-0 before:opacity-70">
       <div className="relative z-[1]">
         <div className="sticky top-0 z-10 flex items-center gap-[18px] py-3 px-7 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-[20px]">
-          <NavLink to="/" className="flex items-center gap-2.5 pr-2 cursor-pointer no-underline text-inherit">
+          <NavLink
+            to="/"
+            className="flex items-center gap-2.5 pr-2 cursor-pointer no-underline text-inherit"
+          >
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-400 to-purple-500 grid place-items-center shadow-[0_2px_6px_rgba(168,85,247,0.35),inset_0_1px_0_rgba(255,255,255,0.2)]">
               <svg
                 viewBox="0 0 24 24"

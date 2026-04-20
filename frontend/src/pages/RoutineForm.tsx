@@ -83,7 +83,6 @@ function triggerToDraft(t: Trigger, routine: { workspace_path: string }): Trigge
   };
 }
 
-
 function TriggerCard({
   draft,
   index,

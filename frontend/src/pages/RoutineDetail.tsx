@@ -35,7 +35,6 @@ function TriggerSummary({ trigger }: { trigger: Trigger }) {
           <span className="label">Cron</span>
           <span className="summary">{String(cfg.expression || '')}</span>
           <span className="code-chip ml-2">{String(cfg.expression || '')}</span>
-
         </div>
       </div>
     );
@@ -49,9 +48,7 @@ function TriggerSummary({ trigger }: { trigger: Trigger }) {
         ? [cfg.path as string]
         : [];
     const recursive = cfg.recursive !== false;
-    const fileFilter = cfg.fileFilter as
-      | { mode?: string; patterns?: string[] }
-      | undefined;
+    const fileFilter = cfg.fileFilter as { mode?: string; patterns?: string[] } | undefined;
     const hasFilter =
       fileFilter &&
       fileFilter.mode !== 'none' &&
@@ -65,7 +62,6 @@ function TriggerSummary({ trigger }: { trigger: Trigger }) {
             {paths.map(resolveHostPath).join(', ') || '—'}
           </span>
           {!recursive && <span className="code-chip text-[10.5px]">top-level only</span>}
-
         </div>
         <div className="px-[14px] pt-2 pb-3 border-t border-t-[var(--border)] flex gap-2 flex-wrap items-center">
           <span className="font-mono text-[11px] text-[color:var(--fg-dim)] uppercase tracking-[.06em]">
@@ -99,7 +95,6 @@ function TriggerSummary({ trigger }: { trigger: Trigger }) {
         <div className="trig-head cursor-default">
           <span className="label">API</span>
           <span className="code-chip">/hooks/api/{trigger.id}</span>
-
         </div>
       </div>
     );
@@ -112,7 +107,6 @@ function TriggerSummary({ trigger }: { trigger: Trigger }) {
         <div className="trig-head cursor-default">
           <span className="label">GitHub</span>
           <span className="summary">{events || '—'}</span>
-
         </div>
       </div>
     );
@@ -132,7 +126,6 @@ export default function RoutineDetail() {
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -194,7 +187,6 @@ export default function RoutineDetail() {
     }
   };
 
-
   if (loading) return <p className="hint">Loading…</p>;
   if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
   if (!routine)
@@ -226,7 +218,12 @@ export default function RoutineDetail() {
         <div>
           <h1>{routine.name}</h1>
           <div className="sub flex items-center gap-2">
-            <span className={classNames('status', { success: routine.enabled, pending: !routine.enabled })}>
+            <span
+              className={classNames('status', {
+                success: routine.enabled,
+                pending: !routine.enabled,
+              })}
+            >
               <span className="dot" />
               <span>{routine.enabled ? 'enabled' : 'paused'}</span>
             </span>
@@ -272,7 +269,9 @@ export default function RoutineDetail() {
       <div className="grid gap-5">
         {/* Prompt */}
         <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
-          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Prompt</div>
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+            Prompt
+          </div>
           <div className="font-mono text-[13px] leading-[1.65] whitespace-pre-wrap mt-1">
             {routine.prompt}
           </div>
@@ -281,22 +280,34 @@ export default function RoutineDetail() {
         {/* Config grid */}
         <div className="grid grid-cols-2 gap-4">
           <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
-            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Model</div>
-            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.model || '—'}</div>
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+              Model
+            </div>
+            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+              {routine.model || '—'}
+            </div>
           </div>
           <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
-            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Agent</div>
-            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.agent}</div>
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+              Agent
+            </div>
+            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+              {routine.agent}
+            </div>
           </div>
           <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
-            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Run mode</div>
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+              Run mode
+            </div>
             <div className="text-sm font-medium text-[color:var(--fg)]">
               {routine.run_mode === 'foreground' ? 'Foreground only' : 'Background'}
             </div>
           </div>
           {routine.workspace_path && (
             <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
-              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Workspace</div>
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+                Workspace
+              </div>
               <div className="font-mono text-[13px] font-medium text-[color:var(--fg)] flex items-center gap-1.5">
                 {resolveHostName(routine.workspace_path)}
                 {!routine.workspace_accessible && (
@@ -309,14 +320,22 @@ export default function RoutineDetail() {
           )}
           {routine.repository && (
             <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
-              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Repository</div>
-              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.repository}</div>
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+                Repository
+              </div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+                {routine.repository}
+              </div>
             </div>
           )}
           {routine.repository && (
             <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
-              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Branch</div>
-              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.branch}</div>
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+                Branch
+              </div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+                {routine.branch}
+              </div>
             </div>
           )}
         </div>
@@ -324,9 +343,11 @@ export default function RoutineDetail() {
         {/* Triggers */}
         <div>
           <div className="section-h">Triggers · {triggers.length}</div>
-          {triggers.length > 0
-            ? triggers.map((t) => <TriggerSummary key={t.id} trigger={t} />)
-            : <p className="hint">No triggers — this routine runs only when invoked manually.</p>}
+          {triggers.length > 0 ? (
+            triggers.map((t) => <TriggerSummary key={t.id} trigger={t} />)
+          ) : (
+            <p className="hint">No triggers — this routine runs only when invoked manually.</p>
+          )}
         </div>
 
         {/* Run history */}
@@ -335,7 +356,6 @@ export default function RoutineDetail() {
           <RunsTable runs={runs} />
         </div>
       </div>
-
     </div>
   );
 }

@@ -104,7 +104,10 @@ export default function RunsList() {
             <button
               key={p}
               className={classNames('pill', { active: filter === p })}
-              onClick={() => { setFilter(p); setPage(0); }}
+              onClick={() => {
+                setFilter(p);
+                setPage(0);
+              }}
             >
               {p[0].toUpperCase() + p.slice(1)}
             </button>

@@ -57,19 +57,38 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-3 gap-3 mb-[22px]">
         <div className="py-[14px] px-4 bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)] shadow-[var(--shadow-sm)]">
-          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">Routines</div>
-          <div className="text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums">{routines.length}</div>
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">
+            Routines
+          </div>
+          <div className="text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums">
+            {routines.length}
+          </div>
         </div>
         <div className="py-[14px] px-4 bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)] shadow-[var(--shadow-sm)]">
-          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">Running</div>
-          <div className="text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums text-[color:var(--status-running)]">{running}</div>
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">
+            Running
+          </div>
+          <div className="text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums text-[color:var(--status-running)]">
+            {running}
+          </div>
         </div>
         <div className="py-[14px] px-4 bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)] shadow-[var(--shadow-sm)]">
-          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">Recent failures</div>
-          <div className={classNames('text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums', { 'text-[color:var(--status-failed)]': failed > 0 })}>
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">
+            Recent failures
+          </div>
+          <div
+            className={classNames(
+              'text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums',
+              { 'text-[color:var(--status-failed)]': failed > 0 }
+            )}
+          >
             {failed}
           </div>
-          {success > 0 && <div className="font-mono text-[11px] text-[color:var(--fg-muted)] mt-0.5">{success} success</div>}
+          {success > 0 && (
+            <div className="font-mono text-[11px] text-[color:var(--fg-muted)] mt-0.5">
+              {success} success
+            </div>
+          )}
         </div>
       </div>
 

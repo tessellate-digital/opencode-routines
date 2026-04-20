@@ -14,7 +14,17 @@ interface TodoBoxProps {
 function StatusIcon({ status }: { status: TodoItem['status'] }) {
   if (status === 'completed') {
     return (
-      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="var(--status-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-px">
+      <svg
+        viewBox="0 0 16 16"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="var(--status-success)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="shrink-0 mt-px"
+      >
         <path d="m3 8 4 4 6-8" />
       </svg>
     );
@@ -23,7 +33,15 @@ function StatusIcon({ status }: { status: TodoItem['status'] }) {
     return <span className="dot shrink-0 mt-px" style={{ width: 7, height: 7 }} />;
   }
   return (
-    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="var(--fg-dim)" strokeWidth="1.5" className="shrink-0 mt-px">
+    <svg
+      viewBox="0 0 16 16"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="var(--fg-dim)"
+      strokeWidth="1.5"
+      className="shrink-0 mt-px"
+    >
       <circle cx="8" cy="8" r="6" />
     </svg>
   );
@@ -84,7 +102,9 @@ export function TodoBox({ items }: TodoBoxProps) {
               )}
             >
               <StatusIcon status={item.status} />
-              <span className={classNames({ 'line-through opacity-45': item.status === 'completed' })}>
+              <span
+                className={classNames({ 'line-through opacity-45': item.status === 'completed' })}
+              >
                 {item.content}
               </span>
             </li>

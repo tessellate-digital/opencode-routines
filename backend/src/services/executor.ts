@@ -278,13 +278,9 @@ export class Executor {
           const ff = cfg.fileFilter as { mode?: string; patterns?: string[] } | undefined;
           if (ff && ff.mode !== 'none' && Array.isArray(ff.patterns) && ff.patterns.length > 0) {
             if (ff.mode === 'include') {
-              constraints.push(
-                `You MUST only touch files of type: ${ff.patterns.join(', ')}`
-              );
+              constraints.push(`You MUST only touch files of type: ${ff.patterns.join(', ')}`);
             } else if (ff.mode === 'exclude') {
-              constraints.push(
-                `You MUST NOT touch files of type: ${ff.patterns.join(', ')}`
-              );
+              constraints.push(`You MUST NOT touch files of type: ${ff.patterns.join(', ')}`);
             }
           }
           if (constraints.length > 0) {

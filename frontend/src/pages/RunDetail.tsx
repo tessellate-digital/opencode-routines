@@ -52,7 +52,11 @@ function extractTodos(segments: Segment[]): TodoItem[] {
     if (seg.kind !== 'tool' || seg.name !== 'todowrite') continue;
     try {
       const parsed = JSON.parse(seg.args);
-      const items = Array.isArray(parsed.todos) ? parsed.todos : Array.isArray(parsed) ? parsed : [];
+      const items = Array.isArray(parsed.todos)
+        ? parsed.todos
+        : Array.isArray(parsed)
+          ? parsed
+          : [];
       latest = items.map((t: { content: string; status: string; priority?: string }) => ({
         content: t.content,
         status: t.status as TodoItem['status'],
@@ -70,7 +74,9 @@ function extractTodos(segments: Segment[]): TodoItem[] {
               priority: t.priority as TodoItem['priority'],
             }));
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
   }
@@ -272,7 +278,7 @@ export default function RunDetail() {
   const [replying, setReplying] = useState(false);
   const [orbExiting, setOrbExiting] = useState(false);
 
-const taRef = useRef<HTMLTextAreaElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
   const scrollAfterReply = useRef(false);
 
   const load = useCallback(async () => {
