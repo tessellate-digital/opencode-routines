@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 import { useGlobalSSE } from '../hooks/useSSE';
 import { RunsTable } from '../components/RunsTable';
@@ -33,43 +34,69 @@ export default function Dashboard() {
     }, [load])
   );
 
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (loading) return <p className="hint">Loading…</p>;
+  if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
 
   const running = runs.filter((r) => r.status === 'running').length;
   const failed = runs.filter((r) => r.status === 'failed').length;
+  const success = runs.filter((r) => r.status === 'success').length;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#1d1d1f]">Dashboard</h1>
-        <Link to="/routines/new" className="btn btn-primary">
-          New Routine
+    <div className="route-fade">
+      <div className="page-head">
+        <div>
+          <h1>Overview</h1>
+          <div className="sub">
+            {routines.length} routines · {runs.length} recent runs
+          </div>
+        </div>
+        <Link to="/routines/new" className="btn primary">
+          + New Routine
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-px rounded-lg border border-[#d1d1d6] overflow-hidden bg-[#d1d1d6]">
-        {[
-          {
-            label: 'Routines',
-            value: routines.length,
-            color: 'text-[#1d1d1f]',
-          },
-          { label: 'Running', value: running, color: 'text-[#0071e3]' },
-          { label: 'Recent failures', value: failed, color: 'text-[#ff3b30]' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white px-5 py-4">
-            <div className={`text-2xl font-semibold ${color}`}>{value}</div>
-            <div className="mt-0.5 text-xs text-[#6e6e73]">{label}</div>
+      <div className="grid grid-cols-3 gap-3 mb-[22px]">
+        <div className="py-[14px] px-4 bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)] shadow-[var(--shadow-sm)]">
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">
+            Routines
           </div>
-        ))}
+          <div className="text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums">
+            {routines.length}
+          </div>
+        </div>
+        <div className="py-[14px] px-4 bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)] shadow-[var(--shadow-sm)]">
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">
+            Running
+          </div>
+          <div className="text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums text-[color:var(--status-running)]">
+            {running}
+          </div>
+        </div>
+        <div className="py-[14px] px-4 bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)] shadow-[var(--shadow-sm)]">
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)]">
+            Recent failures
+          </div>
+          <div
+            className={classNames(
+              'text-[22px] font-semibold tracking-[-0.01em] mt-1 tabular-nums',
+              { 'text-[color:var(--status-failed)]': failed > 0 }
+            )}
+          >
+            {failed}
+          </div>
+          {success > 0 && (
+            <div className="font-mono text-[11px] text-[color:var(--fg-muted)] mt-0.5">
+              {success} success
+            </div>
+          )}
+        </div>
       </div>
 
       <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[#1d1d1f]">Recent runs</h2>
-          <Link to="/runs" className="text-xs text-[#0071e3] hover:underline">
-            View all
+        <div className="flex items-center justify-between mb-3">
+          <div className="section-h">Recent runs</div>
+          <Link to="/runs" className="font-mono text-xs text-[color:var(--accent)] no-underline">
+            View all →
           </Link>
         </div>
         <RunsTable runs={runs} />

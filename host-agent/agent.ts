@@ -1,7 +1,7 @@
 import chokidar, { type FSWatcher } from 'chokidar';
 import { readFileSync } from 'fs';
 import { createServer, IncomingMessage, ServerResponse } from 'http';
-import { resolve, dirname, extname } from 'path';
+import { resolve, dirname, extname, relative } from 'path';
 import { fileURLToPath } from 'url';
 
 const BASE_URL = process.env.ROUTINES_URL ?? 'http://localhost:8080';
@@ -17,6 +17,7 @@ interface WatcherTrigger {
   hostPaths: string[];
   events: string[];
   debounce: number;
+  recursive: boolean;
   fileFilter?: { mode: 'include' | 'exclude' | 'none'; patterns: string[] };
 }
 
@@ -93,12 +94,7 @@ async function fetchWatcherTriggers(): Promise<WatcherTrigger[]> {
   return triggers
     .filter((t) => t.enabled)
     .map((t) => {
-      // Support both config.paths (array) and legacy config.path (string)
-      const rawPaths: string[] = Array.isArray(t.config.paths)
-        ? (t.config.paths as string[])
-        : typeof t.config.path === 'string' && t.config.path
-          ? [t.config.path as string]
-          : [];
+      const rawPaths = (t.config.paths as string[]) ?? [];
       const containerPaths = rawPaths.filter(Boolean);
       const hostPaths = containerPaths.map((p) => toHostPath(p, volumeMounts)).filter(Boolean);
 
@@ -126,6 +122,7 @@ async function fetchWatcherTriggers(): Promise<WatcherTrigger[]> {
           ? (t.config.events as string[])
           : ['add', 'change', 'addDir'],
         debounce: typeof t.config.debounce === 'number' ? t.config.debounce : 500,
+        recursive: t.config.recursive !== false,
         fileFilter,
       };
     })
@@ -215,7 +212,8 @@ function reconcileWatchers(triggers: WatcherTrigger[]): void {
           (t) =>
             t.hostPaths.includes(p) &&
             t.events.includes(evtType) &&
-            matchesFileFilter(filePath, t.fileFilter, evtType)
+            matchesFileFilter(filePath, t.fileFilter, evtType) &&
+            (t.recursive || !relative(p, filePath).includes('/'))
         );
         for (const t of matching) {
           const key = `${t.triggerId}:${evtType}:${filePath}`;

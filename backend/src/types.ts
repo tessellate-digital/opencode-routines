@@ -15,6 +15,8 @@ export interface RoutineRow {
   enabled: number;
   run_mode: string;
   workspace_path: string;
+  last_run_status: string | null;
+  triggers_count: number;
   created_at: string;
   updated_at: string;
 }

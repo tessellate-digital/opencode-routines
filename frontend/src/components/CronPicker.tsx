@@ -14,8 +14,28 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import classNames from 'classnames';
 
 type Mode = 'hourly' | 'daily' | 'weekdays' | 'weekly' | 'custom';
+
+/**
+ * Normalize a cron expression that may be written without spaces.
+ * e.g., "*****" → "* * * * *", "0****" → "0 * * * *"
+ */
+function normalizeCron(expr: string): string {
+  const trimmed = expr.trim();
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 5) return trimmed;
+
+  // Match cron fields: *, */N, N, N-M, N,M,...
+  const fieldPattern = /(\*(?:\/\d+)?|\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)/g;
+  const matches = trimmed.match(fieldPattern);
+  if (matches && matches.length === 5) {
+    return matches.join(' ');
+  }
+
+  return trimmed;
+}
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'hourly', label: 'Hourly' },
@@ -27,10 +47,12 @@ const MODES: { id: Mode; label: string }[] = [
 
 function toMode(expr: string): Mode {
   if (!expr || expr === '0 * * * *') return 'hourly';
-  const parts = expr.trim().split(/\s+/);
+  const normalized = normalizeCron(expr);
+  const parts = normalized.split(/\s+/);
   if (parts.length !== 5) return 'custom';
-  const [, , dom, month, dow] = parts;
+  const [min, hour, dom, month, dow] = parts;
   if (dom !== '*' || month !== '*') return 'custom';
+  if (!/^\d+$/.test(min) || !/^\d+$/.test(hour)) return 'custom';
   if (dow === '1-5') return 'weekdays';
   if (dow === '0') return 'weekly';
   if (dow === '*') return 'daily';
@@ -38,7 +60,8 @@ function toMode(expr: string): Mode {
 }
 
 function toTime(expr: string): string {
-  const parts = expr.trim().split(/\s+/);
+  const normalized = normalizeCron(expr);
+  const parts = normalized.split(/\s+/);
   if (parts.length !== 5) return '09:00';
   const [min, hour] = parts;
   if (min === '*' || hour === '*') return '09:00';
@@ -92,7 +115,8 @@ const MONTHS = [
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function describeCustomCron(expr: string): string {
-  const parts = expr.trim().split(/\s+/);
+  const normalized = normalizeCron(expr);
+  const parts = normalized.split(/\s+/);
   if (parts.length !== 5) return '';
   const [min, hour, dom, month, dow] = parts;
 
@@ -227,63 +251,54 @@ export function CronPicker({ value, onChange }: CronPickerProps) {
   function handleCustomChange(expr: string) {
     userSelectedRef.current = true;
     setCustom(expr);
-    onChange(expr);
+    onChange(normalizeCron(expr));
   }
 
   const presetLabel = humanLabel(mode, time);
   const customDesc = mode === 'custom' ? describeCustomCron(custom) : '';
 
   return (
-    <div className="space-y-3">
-      {/* Pill buttons */}
-      <div className="flex flex-wrap gap-1.5">
+    <div className="grid gap-3">
+      <div className="pills">
         {MODES.map(({ id, label: l }) => (
           <button
             key={id}
             type="button"
             onClick={() => handleModeChange(id)}
-            className={[
-              'rounded-full border px-3.5 py-1 text-sm font-medium transition-colors',
-              mode === id
-                ? 'border-[#1d1d1f] bg-[#1d1d1f] text-white'
-                : 'border-[#d1d1d6] bg-white text-[#1d1d1f] hover:border-[#1d1d1f]',
-            ].join(' ')}
+            className={classNames('pill', { active: mode === id })}
           >
             {l}
           </button>
         ))}
       </div>
 
-      {/* Time input (hidden for Hourly and Custom) */}
       {mode !== 'hourly' && mode !== 'custom' && (
-        <div>
-          <label className="mb-1 block text-xs text-[#6e6e73]">Time</label>
+        <div className="form-row mb-0">
+          <label>Time</label>
           <input
             type="time"
             value={time}
             onChange={(e) => handleTimeChange(e.target.value)}
-            className="input-field w-28"
+            className="input w-[112px]"
           />
         </div>
       )}
 
-      {/* Custom expression input */}
       {mode === 'custom' && (
-        <div>
-          <label className="mb-1 block text-xs text-[#6e6e73]">Cron expression</label>
+        <div className="form-row mb-0">
+          <label>Cron expression</label>
           <input
             type="text"
             value={custom}
             onChange={(e) => handleCustomChange(e.target.value)}
             placeholder="e.g. 0 9 * * 1-5"
-            className="input-field max-w-xs"
+            className="input max-w-[320px]"
           />
         </div>
       )}
 
-      {/* Human-readable label */}
-      {presetLabel && <p className="text-xs text-[#6e6e73]">{presetLabel}</p>}
-      {mode === 'custom' && customDesc && <p className="text-xs text-[#6e6e73]">{customDesc}</p>}
+      {presetLabel && <p className="hint">{presetLabel}</p>}
+      {mode === 'custom' && customDesc && <p className="hint">{customDesc}</p>}
     </div>
   );
 }

@@ -1,8 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { useState, useRef } from 'react';
+import classNames from 'classnames';
 
 export interface FileFilterValue {
   mode: 'include' | 'exclude' | 'none';
@@ -14,85 +11,59 @@ interface FileTypeFilterProps {
   onChange: (v: FileFilterValue) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Preset extensions (flat list, with category labels)
-// ---------------------------------------------------------------------------
-
-interface Preset {
-  ext: string;
-  category: string;
-}
-
-const PRESETS: Preset[] = [
-  { ext: '.mp4', category: 'Video' },
-  { ext: '.mkv', category: 'Video' },
-  { ext: '.avi', category: 'Video' },
-  { ext: '.mov', category: 'Video' },
-  { ext: '.webm', category: 'Video' },
-  { ext: '.mp3', category: 'Audio' },
-  { ext: '.flac', category: 'Audio' },
-  { ext: '.wav', category: 'Audio' },
-  { ext: '.aac', category: 'Audio' },
-  { ext: '.jpg', category: 'Image' },
-  { ext: '.png', category: 'Image' },
-  { ext: '.gif', category: 'Image' },
-  { ext: '.webp', category: 'Image' },
-  { ext: '.svg', category: 'Image' },
-  { ext: '.pdf', category: 'Document' },
-  { ext: '.docx', category: 'Document' },
-  { ext: '.md', category: 'Document' },
-  { ext: '.txt', category: 'Document' },
-  { ext: '.ts', category: 'Code' },
-  { ext: '.js', category: 'Code' },
-  { ext: '.py', category: 'Code' },
-  { ext: '.go', category: 'Code' },
-  { ext: '.rs', category: 'Code' },
+const CATEGORIES: { name: string; extensions: string[] }[] = [
+  { name: 'Code', extensions: ['.ts', '.js', '.py', '.go', '.rs', '.java', '.cpp', '.c'] },
+  { name: 'Docs', extensions: ['.md', '.txt', '.pdf', '.docx', '.doc'] },
+  { name: 'Images', extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'] },
+  { name: 'Video', extensions: ['.mp4', '.mkv', '.avi', '.mov', '.webm'] },
+  { name: 'Audio', extensions: ['.mp3', '.flac', '.wav', '.aac', '.ogg'] },
 ];
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+const MODES = [
+  { value: 'none' as const, label: 'All files' },
+  { value: 'include' as const, label: 'Only these types' },
+  { value: 'exclude' as const, label: 'Exclude these types' },
+];
 
 export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [customInput, setCustomInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
 
   const selected = new Set(value.patterns);
 
   const toggle = (ext: string) => {
     const next = new Set(selected);
-    if (next.has(ext)) next.delete(ext);
-    else next.add(ext);
+    if (next.has(ext)) {
+      next.delete(ext);
+    } else {
+      next.add(ext);
+    }
+    onChange({ ...value, patterns: [...next] });
+  };
+
+  const toggleCategory = (extensions: string[]) => {
+    const next = new Set(value.patterns);
+    const allPresent = extensions.every((ext) => next.has(ext));
+    if (allPresent) {
+      extensions.forEach((ext) => next.delete(ext));
+    } else {
+      extensions.forEach((ext) => next.add(ext));
+    }
     onChange({ ...value, patterns: [...next] });
   };
 
   const addCustom = () => {
-    let ext = query.trim().toLowerCase();
-    if (!ext) return;
-    if (!ext.startsWith('.')) ext = '.' + ext;
+    let ext = customInput.trim().toLowerCase();
+    if (!ext) {
+      return;
+    }
+    if (!ext.startsWith('.')) {
+      ext = '.' + ext;
+    }
     if (!selected.has(ext)) {
       onChange({ ...value, patterns: [...value.patterns, ext] });
     }
-    setQuery('');
+    setCustomInput('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -102,120 +73,94 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
     }
   };
 
-  const q = query.toLowerCase();
-  const filtered = PRESETS.filter(
-    (p) => !q || p.ext.includes(q) || p.category.toLowerCase().includes(q)
-  );
-
-  // Group filtered by category to display labels
-  let lastCategory = '';
+  const active = value.mode !== 'none';
 
   return (
-    <div className="space-y-2">
-      {/* Mode toggle — checkboxes so neither needs to be selected */}
-      <div className="flex gap-4 text-sm">
-        {(['include', 'exclude'] as const).map((m) => (
-          <label key={m} className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={value.mode === m}
-              onChange={() => onChange({ ...value, mode: value.mode === m ? 'none' : m })}
-            />
-            {m === 'include' ? 'Only these types' : 'Ignore these types'}
-          </label>
+    <div className="flex flex-col gap-2.5">
+      <div className="chip-row">
+        {MODES.map((m) => (
+          <button
+            type="button"
+            key={m.value}
+            className={classNames('chip', { active: value.mode === m.value })}
+            onClick={() => onChange({ ...value, mode: m.value })}
+          >
+            {m.label}
+          </button>
         ))}
       </div>
 
-      {/* Selected tags */}
-      {value.patterns.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {value.patterns.map((ext) => (
-            <span
-              key={ext}
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                value.mode === 'include'
-                  ? 'bg-[#d1f5d3] text-[#1a7f37]'
-                  : 'bg-[#fff5f5] text-[#ff3b30]'
-              }`}
-            >
-              {ext}
-              <button type="button" onClick={() => toggle(ext)} className="ml-0.5 hover:opacity-70">
-                &times;
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Dropdown trigger */}
-      <div ref={containerRef} className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="btn btn-secondary text-xs"
-        >
-          {value.patterns.length === 0 ? 'Select file types' : 'Add more'}
-        </button>
-
-        {open && (
-          <div className="absolute z-50 mt-1 w-80 rounded-lg border border-[#d1d1d6] bg-white shadow-lg">
-            {/* Search / custom input */}
-            <div className="p-2 border-b border-[#f0f0f0]">
-              <input
-                ref={inputRef}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Filter or type custom ext..."
-                className="input-field text-sm py-1.5"
-              />
-            </div>
-
-            {/* Custom add hint */}
-            {query.trim() &&
-              !PRESETS.some((p) => p.ext === (query.startsWith('.') ? query : '.' + query)) && (
+      {active && (
+        <div className="flex flex-col gap-2.5 ml-1 pl-[14px] border-l-2 border-[var(--border)]">
+          <div className="chip-row">
+            {CATEGORIES.map((cat) => {
+              const allPresent = cat.extensions.every((ext) => selected.has(ext));
+              return (
                 <button
                   type="button"
-                  onClick={addCustom}
-                  className="w-full text-left px-3 py-1.5 text-sm text-[#0071e3] hover:bg-[#f5f5f7]"
+                  key={cat.name}
+                  className={classNames('chip', { active: allPresent })}
+                  onClick={() => toggleCategory(cat.extensions)}
                 >
-                  Add "{query.startsWith('.') ? query : '.' + query}"
+                  {cat.name}
                 </button>
-              )}
-
-            {/* Preset list */}
-            <div className="max-h-64 overflow-y-auto py-1">
-              {filtered.map((p) => {
-                const showCat = p.category !== lastCategory;
-                lastCategory = p.category;
-                return (
-                  <div key={p.ext}>
-                    {showCat && (
-                      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6e6e73]">
-                        {p.category}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => toggle(p.ext)}
-                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5f5f7] flex items-center justify-between ${
-                        selected.has(p.ext) ? 'font-medium text-[#0071e3]' : 'text-[#1d1d1f]'
-                      }`}
-                    >
-                      <span>{p.ext}</span>
-                      {selected.has(p.ext) && <span className="text-xs">&#10003;</span>}
-                    </button>
-                  </div>
-                );
-              })}
-              {filtered.length === 0 && !query.trim() && (
-                <p className="px-3 py-2 text-sm text-[#6e6e73]">No file types available</p>
-              )}
-            </div>
+              );
+            })}
           </div>
-        )}
-      </div>
+
+          <div className="flex gap-1.5 items-center">
+            <input
+              ref={inputRef}
+              type="text"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Custom extension, e.g. .csv"
+              className="input flex-1 max-w-[220px] !py-1.5 !px-2 !text-[13px]"
+            />
+            <button
+              type="button"
+              className="btn sm"
+              onClick={addCustom}
+              disabled={!customInput.trim()}
+            >
+              Add
+            </button>
+          </div>
+
+          {value.patterns.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {value.patterns.map((ext) => (
+                <span
+                  key={ext}
+                  className={classNames(
+                    'inline-flex items-center gap-1 py-1 px-2 rounded-[var(--r-sm)] text-xs font-mono',
+                    {
+                      'text-[color:var(--status-success)]': value.mode === 'include',
+                      'text-[color:var(--status-failed)]': value.mode === 'exclude',
+                    }
+                  )}
+                  style={{
+                    background:
+                      value.mode === 'include'
+                        ? 'color-mix(in srgb, var(--status-success) 15%, transparent)'
+                        : 'color-mix(in srgb, var(--status-failed) 15%, transparent)',
+                  }}
+                >
+                  {ext}
+                  <button
+                    type="button"
+                    onClick={() => toggle(ext)}
+                    className="bg-transparent border-0 p-0 ml-0.5 cursor-pointer opacity-70 hover:opacity-100 text-inherit text-sm leading-none"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

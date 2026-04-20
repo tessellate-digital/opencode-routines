@@ -9,7 +9,10 @@ import { AsyncQueue } from './runStreamStore';
 import type { StreamEvent } from './runStreamStore';
 import * as pool from './opencodeServerPool';
 import * as relay from './opencodeEventRelay';
-import type { RoutineRow } from '../types';
+import type { RoutineRow, RunRow } from '../types';
+import { runsRepository } from '../repositories/runsRepository';
+import { triggersRepository } from '../repositories/triggersRepository';
+import { logger } from '../util/logger';
 
 const execFileAsync = promisify(execFile);
 
@@ -38,6 +41,53 @@ export function parseModelString(model: string): { providerID: string; modelID: 
   const providerID = model.slice(0, slashIdx);
   const modelID = model.slice(slashIdx + 1);
   return { providerID, modelID };
+}
+
+// ─── Conversation context rebuilder ───────────────────────────────────────────
+
+/**
+ * Extract text content from a run's stdout (JSONL format).
+ * Returns concatenated text from all 'text' type events.
+ */
+function extractTextFromStdout(stdout: string): string {
+  if (!stdout) {
+    return '';
+  }
+  const textParts: string[] = [];
+  for (const line of stdout.split('\n')) {
+    if (!line.trim()) {
+      continue;
+    }
+    try {
+      const evt = JSON.parse(line) as { type: string; data: string };
+      if (evt.type === 'text') {
+        textParts.push(evt.data);
+      }
+    } catch {
+      // Skip malformed lines
+    }
+  }
+  return textParts.join('').trim();
+}
+
+/**
+ * Build conversation context from thread history for session recovery.
+ * Returns a formatted string with alternating User/Assistant messages.
+ */
+function buildConversationContext(threadRuns: RunRow[]): string {
+  const messages: string[] = [];
+  for (const run of threadRuns) {
+    // User message (prompt)
+    if (run.prompt) {
+      messages.push(`User: ${run.prompt}`);
+    }
+    // Assistant response (from stdout)
+    const assistantText = extractTextFromStdout(run.stdout);
+    if (assistantText) {
+      messages.push(`Assistant: ${assistantText}`);
+    }
+  }
+  return messages.join('\n\n');
 }
 
 // ─── Executor class ───────────────────────────────────────────────────────────
@@ -208,6 +258,39 @@ export class Executor {
       extraLines.push(`Changed path: ${meta.fs_path}`);
     }
 
+    // Look up trigger config to add constraints (paths, recursion, file filters)
+    const runRow = db.prepare('SELECT trigger_id FROM runs WHERE id = ?').get(runId) as
+      | { trigger_id: string | null }
+      | undefined;
+    if (runRow?.trigger_id) {
+      const trigger = triggersRepository.findById(runRow.trigger_id);
+      if (trigger) {
+        const cfg = JSON.parse(trigger.config) as Record<string, unknown>;
+        if (trigger.type === 'watcher') {
+          const constraints: string[] = [];
+          const paths = Array.isArray(cfg.paths) ? (cfg.paths as string[]) : [];
+          const recursive = cfg.recursive !== false;
+          if (paths.length > 0) {
+            constraints.push(
+              `You MUST only access files within: ${paths.join(', ')}${recursive ? '' : ' (top-level only — do NOT descend into subfolders)'}`
+            );
+          }
+          const ff = cfg.fileFilter as { mode?: string; patterns?: string[] } | undefined;
+          if (ff && ff.mode !== 'none' && Array.isArray(ff.patterns) && ff.patterns.length > 0) {
+            if (ff.mode === 'include') {
+              constraints.push(`You MUST only touch files of type: ${ff.patterns.join(', ')}`);
+            } else if (ff.mode === 'exclude') {
+              constraints.push(`You MUST NOT touch files of type: ${ff.patterns.join(', ')}`);
+            }
+          }
+          if (constraints.length > 0) {
+            extraLines.push('[HARD REQUIREMENTS]');
+            extraLines.push(...constraints);
+          }
+        }
+      }
+    }
+
     const { context, fullPrompt } = this.buildPromptContext(routine, prompt, extraLines);
     meta.prompt_context = context;
     db.prepare('UPDATE runs SET metadata = ? WHERE id = ?').run(JSON.stringify(meta), runId);
@@ -343,16 +426,83 @@ export class Executor {
         promptBody.agent = routine.agent;
       }
 
-      // Send the prompt — this call blocks until the LLM finishes responding
-      const result = await client.session.prompt({
+      // Send the prompt — non-blocking; the LLM response arrives via the event relay
+      let result = await client.session.prompt({
         path: { id: sessionId },
         body: promptBody,
       });
-      const promptResult = result?.data ?? result;
+      let promptResult = result?.data ?? result;
+
+      logger.debug(
+        `[executor] Run ${runId} prompt() result:`,
+        JSON.stringify(promptResult, null, 2)
+      );
+
+      // ── Stale session recovery ───────────────────────────────────────────
+      // If we were reusing an existing session (reply case) and got an empty
+      // result, the session no longer exists on the server (server restarted,
+      // idle timeout, etc.). Recover by creating a fresh session and replaying
+      // the conversation history as context.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isStaleSession = existingSessionId && !(promptResult as any)?.info?.id;
+      if (isStaleSession) {
+        logger.debug(`[executor] Run ${runId}: stale session detected, rebuilding context`);
+
+        // Unsubscribe from the stale session before creating a new one
+        relay.unsubscribeRun(sessionId);
+
+        // Create a new session
+        const createResult = await client.session.create();
+        const newSession = createResult?.data ?? createResult;
+        const newSessionId = (newSession?.id ?? newSession?.sessionID ?? null) as string | null;
+        if (!newSessionId) {
+          throw new Error('SDK session.create() returned no session ID during recovery');
+        }
+
+        // Update session tracking
+        sessionId = newSessionId;
+        db.prepare('UPDATE runs SET session_id = ? WHERE id = ?').run(sessionId, runId);
+        this.activeSessions.set(runId, { client: serverCtx.client, sessionId });
+        relay.subscribeRun(serverCtx.client, sessionId, runId);
+
+        // Build conversation context from thread history
+        const threadRuns = runsRepository.findParentChain(runId);
+        // Exclude the current run (last in chain) since we're about to send its prompt
+        const historyRuns = threadRuns.slice(0, -1);
+        const conversationContext = buildConversationContext(historyRuns);
+
+        // Rebuild prompt with conversation history
+        const recoveredPrompt = conversationContext
+          ? `[Previous conversation]\n${conversationContext}\n\n[Current message]\n${fullPrompt}`
+          : fullPrompt;
+
+        const recoveredBody: Record<string, unknown> = {
+          parts: [{ type: 'text', text: recoveredPrompt }],
+        };
+        if (sdkModel) {
+          recoveredBody.model = sdkModel;
+        }
+        if (routine.agent) {
+          recoveredBody.agent = routine.agent;
+        }
+
+        // Re-send the prompt on the new session
+        result = await client.session.prompt({
+          path: { id: sessionId },
+          body: recoveredBody,
+        });
+        promptResult = result?.data ?? result;
+
+        logger.debug(
+          `[executor] Run ${runId} recovered prompt() result:`,
+          JSON.stringify(promptResult, null, 2)
+        );
+      }
 
       // Persist assistant_message_id if available in the response
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const assistantMessageId = (promptResult as any)?.info?.id ?? null;
+      const promptInfo = (promptResult as any)?.info;
+      const assistantMessageId = promptInfo?.id ?? null;
       if (assistantMessageId) {
         db.prepare('UPDATE runs SET assistant_message_id = ? WHERE id = ?').run(
           assistantMessageId,
@@ -360,16 +510,29 @@ export class Executor {
         );
       }
 
-      // Re-read status from DB — cancel may have already transitioned it
-      const currentRow = db.prepare('SELECT status FROM runs WHERE id = ?').get(runId) as
-        | { status: string }
-        | undefined;
-      const alreadyCancelled = currentRow?.status === 'cancelled';
+      // Check for API errors in the prompt result (e.g., model not supported)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiError = promptInfo?.error as any;
+      if (apiError) {
+        const errorMessage = apiError.data?.message ?? apiError.name ?? 'Unknown API error';
+        db.prepare('UPDATE runs SET stderr = ? WHERE id = ?').run(
+          `API Error: ${errorMessage}`,
+          runId
+        );
+        // Don't set promptCompletedNormally - the finally block will mark as failed
+        // via hadErrors() since session.error event should also fire
+      } else {
+        // Re-read status from DB — cancel may have already transitioned it
+        const currentRow = db.prepare('SELECT status FROM runs WHERE id = ?').get(runId) as
+          | { status: string }
+          | undefined;
+        const alreadyCancelled = currentRow?.status === 'cancelled';
 
-      if (!alreadyCancelled) {
-        // Mark completion — final status (success or failed) is written in the
-        // finally block after waitForDrain so we can incorporate hadErrors.
-        promptCompletedNormally = true;
+        if (!alreadyCancelled) {
+          // Mark completion — final status (success or failed) is written in the
+          // finally block after waitForDrain so we can incorporate hadErrors.
+          promptCompletedNormally = true;
+        }
       }
     } catch (err) {
       // Don't overwrite cancelled status on unexpected errors either
@@ -392,7 +555,7 @@ export class Executor {
       let finalExitCode: number | null = null;
 
       if (activeSession) {
-        await relay.waitForDrain(activeSession.sessionId, 10_000);
+        await relay.waitForDrain(activeSession.sessionId);
 
         // Write the final run status now that all relay events have been received.
         // This is intentionally deferred from the try block so hadErrors can

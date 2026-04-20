@@ -1,26 +1,64 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 import { useGlobalSSE } from '../hooks/useSSE';
 import { StatusBadge } from '../components/RunsTable';
 import type { Routine } from '../lib/types';
+
+function ChevronIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m6 3 5 5-5 5" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="m13 13-2.8-2.8" />
+    </svg>
+  );
+}
 
 export default function RoutinesList() {
   const navigate = useNavigate();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     try {
-      setRoutines(await api.getRoutines());
+      setRoutines(await api.getRoutines(filter !== 'all' ? { status: filter } : undefined));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     load();
@@ -31,87 +69,137 @@ export default function RoutinesList() {
     }, [load])
   );
 
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
+  if (loading) return <p className="hint">Loading…</p>;
+  if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
+
+  const filtered = routines.filter((r) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return r.name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
+  });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#1d1d1f]">Routines</h1>
-        <Link to="/routines/new" className="btn btn-primary">
-          New Routine
+    <div className="route-fade">
+      <div className="page-head">
+        <div>
+          <h1>Routines</h1>
+          <div className="sub">
+            {routines.length} routine{routines.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+        <Link to="/routines/new" className="btn primary">
+          + New routine
         </Link>
       </div>
 
-      {routines.length ? (
-        <div className="overflow-x-auto rounded-lg border border-[#d1d1d6]">
-          <table className="min-w-full text-sm">
+      <div className="toolbar">
+        <div className="pills">
+          {['all', 'running', 'success', 'failed'].map((p) => (
+            <button
+              key={p}
+              className={classNames('pill', { active: filter === p })}
+              onClick={() => setFilter(p)}
+            >
+              {p[0].toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="search">
+          <SearchIcon />
+          <input
+            placeholder="Search routines…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <span className="kbd">⌘K</span>
+        </div>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="card">
+          <table className="tbl">
             <thead>
-              <tr className="border-b border-[#d1d1d6] bg-[#f5f5f7] text-left text-xs font-medium text-[#6e6e73]">
-                <th className="px-4 py-2.5">Name</th>
-                <th className="px-4 py-2.5">Model</th>
-                <th className="px-4 py-2.5">Triggers</th>
-                <th className="px-4 py-2.5">Last run</th>
-                <th className="px-4 py-2.5">Enabled</th>
+              <tr>
+                <th>Routine</th>
+                <th>Model</th>
+                <th>Triggers</th>
+                <th>Last status</th>
+                <th>Enabled</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f0f0f0]">
-              {routines.map((r) => (
-                <tr
-                  key={r.id}
-                  tabIndex={0}
-                  className="cursor-pointer bg-white hover:bg-[#f5f5f7] outline-none focus-visible:bg-[#f5f5f7]"
-                  onClick={() => navigate(`/routines/${r.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      navigate(`/routines/${r.id}`);
-                    }
-                  }}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-[#1d1d1f]">{r.name}</span>
+            <tbody>
+              {filtered.map((r) => (
+                <tr key={r.id} onClick={() => navigate(`/routines/${r.id}`)}>
+                  <td>
+                    <div className="primary-cell">
+                      {r.name}
                       {r.workspace_path && !r.workspace_accessible && (
-                        <span
-                          className="shrink-0 rounded-full bg-[#fff5f5] border border-[#ffc9c9] px-2 py-0.5 text-[10px] font-medium text-[#ff3b30]"
-                          title={`Workspace folder inaccessible: ${r.workspace_path}`}
-                        >
-                          Folder missing
+                        <span className="ml-2 text-[10px] text-[color:var(--status-warning)] font-mono">
+                          folder missing
                         </span>
                       )}
                     </div>
-                    {r.description && (
-                      <div className="mt-0.5 text-xs text-[#6e6e73]">{r.description}</div>
-                    )}
+                    {r.description && <div className="sub">{r.description}</div>}
                   </td>
-                  <td className="px-4 py-3 text-[#6e6e73]">{r.model || 'default'}</td>
-                  <td className="px-4 py-3 text-[#6e6e73]">{r.triggers_count}</td>
-                  <td className="px-4 py-3">
+                  <td>
+                    <span className="mono">{r.model || 'default'}</span>
+                  </td>
+                  <td>
+                    <span className="mono">{r.triggers_count}</span>
+                  </td>
+                  <td>
                     {r.last_run_status ? (
                       <StatusBadge status={r.last_run_status} />
                     ) : (
-                      <span className="text-[#6e6e73]">—</span>
+                      <span className="status pending">
+                        <span className="dot" />
+                        idle
+                      </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={r.enabled ? 'text-[#34c759]' : 'text-[#6e6e73]'}>
+                  <td>
+                    <span
+                      className={classNames({
+                        'text-[color:var(--status-success)] font-medium': r.enabled,
+                        'text-[color:var(--fg-dim)] font-normal': !r.enabled,
+                      })}
+                    >
                       {r.enabled ? 'Yes' : 'No'}
                     </span>
+                  </td>
+                  <td className="chev">
+                    <ChevronIcon />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      ) : routines.length === 0 ? (
+        <div className="card">
+          <div className="py-20 px-10 text-center grid gap-2.5 justify-items-center">
+            <div className="w-[72px] h-[72px] rounded-[22px] bg-gradient-to-br from-[#4f46e5] to-[#c5b8ff] grid place-items-center text-white mb-3 shadow-[0_12px_40px_rgba(79,70,229,0.3)] animate-[float_4s_ease-in-out_infinite]">
+              <svg viewBox="0 0 16 16" width="32" height="32" fill="currentColor" stroke="none">
+                <path d="M8 1.5 9.4 6 14 7.4 9.4 8.8 8 13.3 6.6 8.8 2 7.4 6.6 6 8 1.5z" />
+              </svg>
+            </div>
+            <h2 className="text-[22px] m-0 font-semibold">Nothing scheduled yet</h2>
+            <p className="text-[color:var(--fg-muted)] text-sm max-w-[420px] m-0 leading-[1.55]">
+              Routines run a prompt when a trigger fires — on a schedule, or when files change. Set
+              your first one up in under a minute.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <Link to="/routines/new" className="btn primary">
+                + New routine
+              </Link>
+            </div>
+          </div>
+        </div>
       ) : (
-        <p className="py-6 text-sm text-[#6e6e73]">
-          No routines yet.{' '}
-          <Link to="/routines/new" className="text-[#0071e3] hover:underline">
-            Create one
-          </Link>{' '}
-          to get started.
-        </p>
+        <div className="card">
+          <div className="p-12 text-center text-[color:var(--fg-muted)]">No routines match.</div>
+        </div>
       )}
     </div>
   );

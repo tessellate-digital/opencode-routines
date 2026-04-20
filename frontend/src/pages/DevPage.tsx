@@ -1,15 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 
 const AGENT_URL = 'http://localhost:3000';
 
 interface AgentWatcher {
   triggerId: string;
-  containerPath: string;
-  hostPath: string;
-  pathResolved: boolean;
+  containerPaths: string[];
+  hostPaths: string[];
   events: string[];
   watching: boolean;
+  fileFilter?: { mode: string; patterns: string[] } | null;
 }
 
 interface AgentDebug {
@@ -28,14 +29,20 @@ interface TriggerRow {
   enabled: boolean;
 }
 
+interface RoutineInfo {
+  id: string;
+  name: string;
+  enabled: boolean;
+}
+
 export default function DevPage() {
   const [agentData, setAgentData] = useState<AgentDebug | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [dbTriggers, setDbTriggers] = useState<TriggerRow[]>([]);
+  const [routines, setRoutines] = useState<Map<string, RoutineInfo>>(new Map());
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
-    // Fetch agent debug info
     try {
       const res = await fetch(AGENT_URL);
       if (!res.ok) throw new Error(`Agent returned ${res.status}`);
@@ -46,10 +53,23 @@ export default function DevPage() {
       setAgentData(null);
     }
 
-    // Fetch all watcher triggers from backend DB
     try {
       const res = await fetch('/api/triggers?type=watcher');
-      if (res.ok) setDbTriggers(await res.json());
+      if (res.ok) {
+        const triggers = (await res.json()) as TriggerRow[];
+        setDbTriggers(triggers);
+        const routineIds = [...new Set(triggers.map((t) => t.routine_id))];
+        const routineMap = new Map<string, RoutineInfo>();
+        for (const rid of routineIds) {
+          try {
+            const r = await api.getRoutine(rid);
+            routineMap.set(rid, { id: r.id, name: r.name, enabled: r.enabled });
+          } catch {
+            /* ignore */
+          }
+        }
+        setRoutines(routineMap);
+      }
     } catch {
       /* non-critical */
     }
@@ -65,13 +85,10 @@ export default function DevPage() {
     setDeleting((s) => new Set(s).add(triggerId));
     try {
       await api.deleteTrigger(triggerId);
-
-      // Check remaining triggers for this routine
       const remaining = await api.getTriggers(routineId);
       if (remaining.length === 0) {
         await api.toggleRoutine(routineId, false);
       }
-
       await load();
     } catch (e) {
       alert('Error: ' + (e instanceof Error ? e.message : 'Unknown'));
@@ -84,15 +101,17 @@ export default function DevPage() {
     }
   };
 
-  // Merge DB triggers with agent state
   const merged = dbTriggers.map((t) => {
     const agentWatcher = agentData?.watchers.find((w) => w.triggerId === t.id);
     return { trigger: t, agent: agentWatcher ?? null };
   });
 
+  // Find agent watchers that aren't in the DB (orphaned)
+  const orphanedWatchers =
+    agentData?.watchers.filter((w) => !dbTriggers.some((t) => t.id === w.triggerId)) ?? [];
+
   return (
     <div className="space-y-6">
-      {/* Dev warning */}
       <div className="rounded-lg border border-[#ffc9c9] bg-[#fff5f5] px-4 py-3 flex items-start gap-3">
         <span className="shrink-0 mt-0.5 text-[#ff3b30] font-bold text-sm">DEV</span>
         <div>
@@ -113,7 +132,7 @@ export default function DevPage() {
             Could not reach agent at {AGENT_URL}: {agentError}
           </p>
         ) : agentData ? (
-          <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0] text-sm">
+          <div className="rounded-lg border border-[var(--border)] divide-y divide-[var(--border)] text-sm">
             <Row label="Backend URL" value={agentData.backendUrl} />
             <Row label="Last poll" value={agentData.lastPollAt ?? '—'} />
             {agentData.lastPollError && (
@@ -126,9 +145,7 @@ export default function DevPage() {
               label="Volume mounts"
               value={
                 Object.keys(agentData.volumeMounts).length === 0 ? (
-                  <span className="text-[#ff3b30]">
-                    None parsed — check docker-compose.yml regex
-                  </span>
+                  <span className="text-[#ff3b30]">None parsed — check docker-compose.yml</span>
                 ) : (
                   <span className="font-mono text-xs">
                     {Object.entries(agentData.volumeMounts).map(([c, h]) => (
@@ -140,9 +157,10 @@ export default function DevPage() {
                 )
               }
             />
+            <Row label="Active watchers" value={`${agentData.watchers.length}`} />
           </div>
         ) : (
-          <p className="text-sm text-[#6e6e73]">Loading…</p>
+          <p className="text-sm text-[color:var(--fg-muted)]">Loading…</p>
         )}
       </div>
 
@@ -150,69 +168,138 @@ export default function DevPage() {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-[#1d1d1f]">Watcher triggers</h2>
-          <button onClick={load} className="btn btn-secondary text-xs">
+          <button onClick={load} className="btn sm">
             Refresh
           </button>
         </div>
 
-        {merged.length === 0 ? (
-          <p className="text-sm text-[#6e6e73]">No watcher triggers registered.</p>
+        {merged.length === 0 && orphanedWatchers.length === 0 ? (
+          <p className="text-sm text-[color:var(--fg-muted)]">No watcher triggers registered.</p>
         ) : (
           <div className="space-y-3">
-            {merged.map(({ trigger, agent }) => (
-              <div key={trigger.id} className="rounded-lg border border-[#d1d1d6] overflow-hidden">
-                <div className="flex items-center justify-between bg-[#f5f5f7] px-4 py-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-[#1d1d1f]">
-                      {(trigger.config.path as string) ?? trigger.id}
-                    </span>
-                    {agent ? (
-                      agent.watching ? (
-                        <Badge color="green">Watching</Badge>
+            {merged.map(({ trigger, agent }) => {
+              const routine = routines.get(trigger.routine_id);
+              const paths = (trigger.config.paths as string[]) ?? [];
+              const events = (trigger.config.events as string[]) ?? [];
+              const recursive = trigger.config.recursive !== false;
+              const fileFilter = trigger.config.fileFilter as
+                | { mode?: string; patterns?: string[] }
+                | undefined;
+
+              return (
+                <div
+                  key={trigger.id}
+                  className="rounded-lg border border-[var(--border)] overflow-hidden"
+                >
+                  <div className="flex items-center justify-between bg-[var(--surface)] px-4 py-2">
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                      <span className="font-medium">
+                        {routine?.name ?? trigger.routine_id.slice(0, 8)}
+                      </span>
+                      {agent ? (
+                        agent.watching ? (
+                          <Badge color="green">Watching</Badge>
+                        ) : (
+                          <Badge color="red">Not watching</Badge>
+                        )
                       ) : (
-                        <Badge color="red">Not watching</Badge>
-                      )
-                    ) : (
-                      <Badge color="yellow">Agent offline</Badge>
-                    )}
-                    {agent && !agent.pathResolved && <Badge color="red">Path unresolved</Badge>}
+                        <Badge color="yellow">Agent offline</Badge>
+                      )}
+                      {agent && agent.hostPaths.length === 0 && (
+                        <Badge color="red">Path unresolved</Badge>
+                      )}
+                      {routine && !routine.enabled && (
+                        <Badge color="yellow">Routine disabled</Badge>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDelete(trigger.id, trigger.routine_id)}
+                      disabled={deleting.has(trigger.id)}
+                      className="btn sm delete-rt"
+                    >
+                      {deleting.has(trigger.id) ? '…' : 'Delete'}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDelete(trigger.id, trigger.routine_id)}
-                    disabled={deleting.has(trigger.id)}
-                    className="btn btn-danger text-xs"
-                  >
-                    {deleting.has(trigger.id) ? '…' : 'Delete'}
-                  </button>
-                </div>
-                <div className="divide-y divide-[#f0f0f0] text-sm">
-                  <Row label="Trigger ID" value={<code className="text-xs">{trigger.id}</code>} />
-                  <Row
-                    label="Routine ID"
-                    value={<code className="text-xs">{trigger.routine_id}</code>}
-                  />
-                  <Row
-                    label="Container path"
-                    value={
-                      <code className="text-xs">
-                        {agent?.containerPath ?? (trigger.config.path as string)}
-                      </code>
-                    }
-                  />
-                  {agent && (
+                  <div className="divide-y divide-[var(--border)] text-sm">
                     <Row
-                      label="Host path"
+                      label="Trigger ID"
+                      value={<code className="text-xs font-mono">{trigger.id}</code>}
+                    />
+                    <Row
+                      label="Routine ID"
+                      value={<code className="text-xs font-mono">{trigger.routine_id}</code>}
+                    />
+                    <Row
+                      label="Container paths"
+                      value={<code className="text-xs font-mono">{paths.join(', ') || '—'}</code>}
+                    />
+                    <Row
+                      label="Host paths"
                       value={
-                        <code className={`text-xs ${!agent.pathResolved ? 'text-[#ff3b30]' : ''}`}>
-                          {agent.hostPath}
+                        <code
+                          className={classNames('text-xs font-mono', {
+                            'text-[#ff3b30]': agent && agent.hostPaths.length === 0,
+                          })}
+                        >
+                          {agent ? agent.hostPaths.join(', ') || '—' : '(agent offline)'}
                         </code>
                       }
                     />
-                  )}
+                    <Row
+                      label="Events"
+                      value={
+                        events.length > 0 ? (
+                          <span className="flex gap-1 flex-wrap justify-end">
+                            {events.map((e) => (
+                              <span key={e} className="trig text-[11px]">
+                                {e}
+                              </span>
+                            ))}
+                          </span>
+                        ) : (
+                          '—'
+                        )
+                      }
+                    />
+                    <Row label="Recursive" value={recursive ? 'Yes' : 'No'} />
+                    {fileFilter &&
+                      fileFilter.mode !== 'none' &&
+                      fileFilter.patterns &&
+                      fileFilter.patterns.length > 0 && (
+                        <Row
+                          label={`File filter (${fileFilter.mode})`}
+                          value={
+                            <span className="flex gap-1 flex-wrap justify-end">
+                              {fileFilter.patterns.map((p) => (
+                                <span key={p} className="code-chip text-[11px]">
+                                  {p}
+                                </span>
+                              ))}
+                            </span>
+                          }
+                        />
+                      )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {orphanedWatchers.map((w) => (
+              <div
+                key={w.triggerId}
+                className="rounded-lg border border-[var(--border)] overflow-hidden opacity-60"
+              >
+                <div className="flex items-center gap-2 bg-[var(--surface)] px-4 py-2 text-sm">
+                  <span className="font-medium">{w.triggerId.slice(0, 8)}…</span>
+                  <Badge color="yellow">Orphaned (not in DB)</Badge>
+                  {w.watching && <Badge color="green">Watching</Badge>}
+                </div>
+                <div className="divide-y divide-[var(--border)] text-sm">
                   <Row
-                    label="Events"
-                    value={(trigger.config.events as string[])?.join(', ') ?? '—'}
+                    label="Host paths"
+                    value={<code className="text-xs font-mono">{w.hostPaths.join(', ')}</code>}
                   />
+                  <Row label="Events" value={w.events.join(', ')} />
                 </div>
               </div>
             ))}
@@ -226,8 +313,8 @@ export default function DevPage() {
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between px-4 py-2.5 gap-4">
-      <span className="text-[#6e6e73] shrink-0">{label}</span>
-      <span className="text-[#1d1d1f] text-right">{value}</span>
+      <span className="text-[color:var(--fg-muted)] shrink-0">{label}</span>
+      <span className="text-right">{value}</span>
     </div>
   );
 }
@@ -244,5 +331,9 @@ function Badge({
     red: 'bg-[#ffd7d5] text-[#cf222e]',
     yellow: 'bg-[#fff3cd] text-[#856404]',
   }[color];
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{children}</span>;
+  return (
+    <span className={classNames('rounded-full px-2 py-0.5 text-xs font-medium', cls)}>
+      {children}
+    </span>
+  );
 }

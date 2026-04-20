@@ -36,6 +36,13 @@ vi.mock('../opencodeServerPool', () => ({
   acquireContext: mockAcquireContext,
 }));
 
+const mockTriggerFindById = vi.fn(() => undefined);
+vi.mock('../../repositories/triggersRepository', () => ({
+  triggersRepository: {
+    findById: mockTriggerFindById,
+  },
+}));
+
 const mockSubscribeRun = vi.fn();
 const mockUnsubscribeRun = vi.fn();
 const mockWaitForDrain = vi.fn().mockResolvedValue(undefined);
@@ -143,12 +150,14 @@ describe('startRun with existingSessionId', () => {
 
     // DB responses (in call order):
     // 1. metadata fetch
-    // 2. last-run query in buildPromptContext (none)
-    // 3. pre-prompt cancellation status check
-    // 4. post-prompt status check
+    // 2. trigger_id fetch (no trigger)
+    // 3. last-run query in buildPromptContext (none)
+    // 4. pre-prompt cancellation status check
+    // 5. post-prompt status check
     // NOTE: no session_id fetch since existingSessionId is provided
     mockPrepareGet
       .mockReturnValueOnce({ metadata: '{}' })
+      .mockReturnValueOnce({ trigger_id: null })
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce({ status: 'running' })
       .mockReturnValueOnce({ status: 'running' });
@@ -176,12 +185,14 @@ describe('startRun with existingSessionId', () => {
 
     // DB responses (in call order):
     // 1. metadata fetch
-    // 2. last-run query in buildPromptContext (none)
-    // 3. session_id fetch from DB (null — no prior session)
-    // 4. pre-prompt cancellation status check
-    // 5. post-prompt status check
+    // 2. trigger_id fetch (no trigger)
+    // 3. last-run query in buildPromptContext (none)
+    // 4. session_id fetch from DB (null — no prior session)
+    // 5. pre-prompt cancellation status check
+    // 6. post-prompt status check
     mockPrepareGet
       .mockReturnValueOnce({ metadata: '{}' })
+      .mockReturnValueOnce({ trigger_id: null })
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce({ session_id: null })
       .mockReturnValueOnce({ status: 'running' })
@@ -233,11 +244,13 @@ describe('startRun cancellation race', () => {
 
     // DB responses (in call order):
     // 1. metadata fetch
-    // 2. last-run query in buildPromptContext (none)
-    // 3. session_id fetch (null — no prior session in DB)
-    // 4. pre-prompt status check → 'cancelled' → skip prompt
+    // 2. trigger_id fetch (no trigger)
+    // 3. last-run query in buildPromptContext (none)
+    // 4. session_id fetch (null — no prior session in DB)
+    // 5. pre-prompt status check → 'cancelled' → skip prompt
     mockPrepareGet
       .mockReturnValueOnce({ metadata: '{}' })
+      .mockReturnValueOnce({ trigger_id: null })
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce({ session_id: null })
       .mockReturnValueOnce({ status: 'cancelled' });
@@ -288,12 +301,14 @@ describe('startRun session.error downgrade', () => {
 
     // DB responses:
     // 1. metadata fetch
-    // 2. last-run query (none)
-    // 3. session_id fetch (null)
-    // 4. pre-prompt status check (running)
-    // 5. post-prompt status check (running — not cancelled → sets promptCompletedNormally=true)
+    // 2. trigger_id fetch (no trigger)
+    // 3. last-run query (none)
+    // 4. session_id fetch (null)
+    // 5. pre-prompt status check (running)
+    // 6. post-prompt status check (running — not cancelled → sets promptCompletedNormally=true)
     mockPrepareGet
       .mockReturnValueOnce({ metadata: '{}' })
+      .mockReturnValueOnce({ trigger_id: null })
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce({ session_id: null })
       .mockReturnValueOnce({ status: 'running' })
@@ -303,7 +318,7 @@ describe('startRun session.error downgrade', () => {
     await executor.startRun('run-err-1', makeRoutine(), 'do work');
 
     // db.prepare() is called with the SQL string. Find the call that writes 'failed'.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const prepareCalls = mockDbPrepare.mock.calls.map((args: any[]) => args[0] as string);
     const failedCall = prepareCalls.find((sql) => sql.includes("status = 'failed'"));
     expect(failedCall).toBeDefined();
@@ -338,6 +353,7 @@ describe('startRun session.error downgrade', () => {
 
     mockPrepareGet
       .mockReturnValueOnce({ metadata: '{}' })
+      .mockReturnValueOnce({ trigger_id: null })
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce({ session_id: null })
       .mockReturnValueOnce({ status: 'running' })
@@ -346,7 +362,6 @@ describe('startRun session.error downgrade', () => {
     const executor = new Executor();
     await executor.startRun('run-ok-1', makeRoutine(), 'do work');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const prepareCalls2 = mockDbPrepare.mock.calls.map((args: any[]) => args[0] as string);
     const successCall = prepareCalls2.find((sql) => sql.includes("status = 'success'"));
     expect(successCall).toBeDefined();
@@ -356,5 +371,197 @@ describe('startRun session.error downgrade', () => {
       status: 'success',
       exit_code: null,
     });
+  });
+});
+
+// ─── startRun: trigger context in prompt ─────────────────────────────────────
+
+describe('startRun trigger prompt context', () => {
+  function makeRoutine() {
+    return {
+      id: 'routine-trig',
+      name: 'Trigger Context Test',
+      model: '',
+      agent: '',
+      workspace_path: '/tmp',
+      repository: null,
+      branch: null,
+      env_vars: '{}',
+    };
+  }
+
+  function setupMocks() {
+    const promptMock = vi.fn().mockResolvedValue({ data: { info: { id: 'msg-1' } } });
+    const mockClient = {
+      session: {
+        create: vi.fn().mockResolvedValue({ data: { id: 'sess-trig' } }),
+        prompt: promptMock,
+        abort: vi.fn(),
+      },
+    };
+    mockAcquireContext.mockResolvedValue({
+      client: mockClient,
+      baseUrl: 'http://localhost:1234',
+      release: vi.fn(),
+    });
+    mockHadErrors.mockReturnValue(false);
+    return { promptMock, mockClient };
+  }
+
+  function standardDbMocks(triggerId: string | null) {
+    mockPrepareGet
+      .mockReturnValueOnce({ metadata: '{}' })
+      .mockReturnValueOnce({ trigger_id: triggerId })
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce({ session_id: null })
+      .mockReturnValueOnce({ status: 'running' })
+      .mockReturnValueOnce({ status: 'running' });
+  }
+
+  function extractPromptText(promptMock: ReturnType<typeof vi.fn>): string {
+    const body = promptMock.mock.calls[0][0].body;
+    return body.parts[0].text;
+  }
+
+  it('includes recursive folder path for watcher trigger', async () => {
+    const { promptMock } = setupMocks();
+    standardDbMocks('trig-1');
+    mockTriggerFindById.mockReturnValueOnce({
+      id: 'trig-1',
+      type: 'watcher',
+      config: JSON.stringify({
+        paths: ['/workspaces/user-data/desktop'],
+        recursive: true,
+        events: ['add'],
+      }),
+    });
+
+    const executor = new Executor();
+    await executor.startRun('run-trig-1', makeRoutine(), 'sort files');
+
+    const prompt = extractPromptText(promptMock);
+    expect(prompt).toContain('[HARD REQUIREMENTS]');
+    expect(prompt).toContain('You MUST only access files within: /workspaces/user-data/desktop');
+    expect(prompt).not.toContain('top-level');
+  });
+
+  it('includes top-level only constraint for non-recursive watcher trigger', async () => {
+    const { promptMock } = setupMocks();
+    standardDbMocks('trig-2');
+    mockTriggerFindById.mockReturnValueOnce({
+      id: 'trig-2',
+      type: 'watcher',
+      config: JSON.stringify({
+        paths: ['/data/inbox'],
+        recursive: false,
+        events: ['add'],
+      }),
+    });
+
+    const executor = new Executor();
+    await executor.startRun('run-trig-2', makeRoutine(), 'process files');
+
+    const prompt = extractPromptText(promptMock);
+    expect(prompt).toContain('You MUST only access files within: /data/inbox (top-level only');
+    expect(prompt).toContain('do NOT descend into subfolders');
+  });
+
+  it('includes multiple folder paths', async () => {
+    const { promptMock } = setupMocks();
+    standardDbMocks('trig-3');
+    mockTriggerFindById.mockReturnValueOnce({
+      id: 'trig-3',
+      type: 'watcher',
+      config: JSON.stringify({
+        paths: ['/data/a', '/data/b'],
+        recursive: true,
+        events: ['add'],
+      }),
+    });
+
+    const executor = new Executor();
+    await executor.startRun('run-trig-3', makeRoutine(), 'sync');
+
+    const prompt = extractPromptText(promptMock);
+    expect(prompt).toContain('You MUST only access files within: /data/a, /data/b');
+  });
+
+  it('includes include file filter as hard requirement', async () => {
+    const { promptMock } = setupMocks();
+    standardDbMocks('trig-4');
+    mockTriggerFindById.mockReturnValueOnce({
+      id: 'trig-4',
+      type: 'watcher',
+      config: JSON.stringify({
+        paths: ['/photos'],
+        recursive: true,
+        events: ['add'],
+        fileFilter: { mode: 'include', patterns: ['.png', '.jpg'] },
+      }),
+    });
+
+    const executor = new Executor();
+    await executor.startRun('run-trig-4', makeRoutine(), 'classify');
+
+    const prompt = extractPromptText(promptMock);
+    expect(prompt).toContain('[HARD REQUIREMENTS]');
+    expect(prompt).toContain('You MUST only touch files of type: .png, .jpg');
+  });
+
+  it('includes exclude file filter as hard requirement', async () => {
+    const { promptMock } = setupMocks();
+    standardDbMocks('trig-5');
+    mockTriggerFindById.mockReturnValueOnce({
+      id: 'trig-5',
+      type: 'watcher',
+      config: JSON.stringify({
+        paths: ['/repo'],
+        recursive: true,
+        events: ['change'],
+        fileFilter: { mode: 'exclude', patterns: ['.tmp', '.log'] },
+      }),
+    });
+
+    const executor = new Executor();
+    await executor.startRun('run-trig-5', makeRoutine(), 'lint');
+
+    const prompt = extractPromptText(promptMock);
+    expect(prompt).toContain('[HARD REQUIREMENTS]');
+    expect(prompt).toContain('You MUST NOT touch files of type: .tmp, .log');
+  });
+
+  it('does not add trigger context when no trigger_id', async () => {
+    const { promptMock } = setupMocks();
+    standardDbMocks(null);
+
+    const executor = new Executor();
+    await executor.startRun('run-trig-6', makeRoutine(), 'manual run');
+
+    const prompt = extractPromptText(promptMock);
+    expect(prompt).not.toContain('[HARD REQUIREMENTS]');
+    expect(prompt).not.toContain('MUST');
+  });
+
+  it('skips file filter when mode is none', async () => {
+    const { promptMock } = setupMocks();
+    standardDbMocks('trig-7');
+    mockTriggerFindById.mockReturnValueOnce({
+      id: 'trig-7',
+      type: 'watcher',
+      config: JSON.stringify({
+        paths: ['/data'],
+        recursive: true,
+        events: ['add'],
+        fileFilter: { mode: 'none', patterns: ['.png'] },
+      }),
+    });
+
+    const executor = new Executor();
+    await executor.startRun('run-trig-7', makeRoutine(), 'watch');
+
+    const prompt = extractPromptText(promptMock);
+    expect(prompt).toContain('You MUST only access files within: /data');
+    expect(prompt).not.toContain('MUST only touch');
+    expect(prompt).not.toContain('MUST NOT touch');
   });
 });

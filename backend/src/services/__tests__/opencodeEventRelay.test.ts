@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Unit tests for opencodeEventRelay — drain mechanism and role-based filtering.
  */
@@ -9,6 +8,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../runStreamStore', () => ({
   push: vi.fn(),
+}));
+
+vi.mock('../../database', () => ({
+  db: {
+    prepare: vi.fn(() => ({ run: vi.fn() })),
+  },
 }));
 
 // ─── Import module under test ─────────────────────────────────────────────────
@@ -108,7 +113,7 @@ describe('waitForDrain', () => {
     await expect(waitForDrain(sessionId, 2_000)).resolves.toBeUndefined();
   });
 
-  it('resolves after timeout when session.idle never fires', async () => {
+  it('stays pending when session.idle never fires (no timeout)', async () => {
     const sessionId = 'session-drain-test-3';
     const runId = 'run-drain-test-3';
 
@@ -116,10 +121,14 @@ describe('waitForDrain', () => {
 
     subscribeRun(client, sessionId, runId);
 
-    const start = Date.now();
-    await expect(waitForDrain(sessionId, 100)).resolves.toBeUndefined();
-    const elapsed = Date.now() - start;
-    expect(elapsed).toBeGreaterThanOrEqual(90); // allow small jitter
+    let resolved = false;
+    waitForDrain(sessionId).then(() => {
+      resolved = true;
+    });
+
+    // Give it a tick — should NOT resolve without session.idle
+    await new Promise((r) => setTimeout(r, 50));
+    expect(resolved).toBe(false);
   });
 });
 
@@ -186,12 +195,18 @@ describe('message.part.updated role filtering (via message.updated map)', () => 
     unsubscribeRun(sid);
   });
 
-  it('does NOT forward text parts when no message.updated has fired for that messageID (unknown role)', async () => {
+  it('DOES forward text parts when no userMessageId is set (assumes assistant)', async () => {
+    // With the new logic, parts are forwarded unless they match userMessageId.
+    // If userMessageId is null (no user message.updated received yet), parts are forwarded.
+    // This handles the case where assistant parts arrive before message.updated.
     const sid = 'session-role-new-3';
     const client = makeFakeClient([makeTextPartEvent(sid, 'msg-unknown')]);
     subscribeRun(client, sid, 'run-role-new-3');
     await new Promise((r) => setTimeout(r, 50));
-    expect(vi.mocked(runStreamStore.push)).not.toHaveBeenCalled();
+    expect(vi.mocked(runStreamStore.push)).toHaveBeenCalledWith(
+      'run-role-new-3',
+      expect.objectContaining({ type: 'text', data: 'hello from LLM' })
+    );
     unsubscribeRun(sid);
   });
 });

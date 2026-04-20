@@ -1,128 +1,101 @@
 import { Hono } from 'hono';
-import { db } from '../database';
-import { invalidateAll } from '../services/opencodeServerPool';
+import { acquireContext } from '../services/opencodeServerPool';
+import { settingsRepository } from '../repositories/settingsRepository';
+import { config } from '../config';
+import { logger } from '../util/logger';
 
 /**
- * GitHub Copilot uses the OAuth Device Authorization flow.
+ * GitHub Copilot authentication via the OpenCode SDK.
  *
  * Flow:
- *   1. POST /api/auth/github-copilot/device-code
- *      → Requests a device code from GitHub, returns { user_code, verification_uri, device_code, interval }
- *   2. GET  /api/auth/github-copilot/poll?device_code=…
- *      → Polls GitHub for the access token. Returns { status, token? }
+ *   1. POST /api/auth/github-copilot/authorize
+ *      → Calls SDK's provider.oauth.authorize(), returns { url, instructions, method }
+ *   2. POST /api/auth/github-copilot/callback
+ *      → Calls SDK's provider.oauth.callback(), polls until auth completes
  *
- * The client ID below is the well-known Copilot VS Code extension client ID,
- * which is the same one used by opencode's /connect command.
+ * The SDK handles the device code flow, token storage, and refresh internally.
  */
 
-const GITHUB_CLIENT_ID = 'Iv1.b507a08c87ecfe98';
-const DEVICE_CODE_URL = 'https://github.com/login/device/code';
-const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+const PROVIDER_ID = 'github-copilot';
 
 const router = new Hono();
 
-// Step 1: Request a device code from GitHub
-router.post('/device-code', async (c) => {
-  const body = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID,
-    scope: 'read:user',
-  });
-
-  const res = await fetch(DEVICE_CODE_URL, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    return c.json({ error: `GitHub returned ${res.status}: ${text}` }, 502);
+// Step 1: Start OAuth authorization flow
+router.post('/authorize', async (c) => {
+  let serverCtx;
+  try {
+    serverCtx = await acquireContext({ cwd: config.workspacesDir, env: process.env });
+  } catch (err) {
+    logger.error('Failed to acquire OpenCode server for auth:', err);
+    return c.json({ error: 'Failed to connect to OpenCode server' }, 500);
   }
 
-  const data = (await res.json()) as {
-    device_code: string;
-    user_code: string;
-    verification_uri: string;
-    expires_in: number;
-    interval: number;
-  };
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = serverCtx.client as any;
 
-  return c.json({
-    device_code: data.device_code,
-    user_code: data.user_code,
-    verification_uri: data.verification_uri,
-    expires_in: data.expires_in,
-    interval: data.interval,
-  });
+    const result = await client.provider.oauth.authorize({
+      path: { id: PROVIDER_ID },
+      body: { method: 0 },
+      query: { directory: config.workspacesDir },
+    });
+
+    if (!result.data) {
+      return c.json({ error: 'No authorization data returned' }, 500);
+    }
+
+    return c.json({
+      url: result.data.url,
+      instructions: result.data.instructions,
+      method: result.data.method,
+    });
+  } catch (err) {
+    logger.error('OAuth authorize failed:', err);
+    return c.json({ error: `Authorization failed: ${err}` }, 500);
+  } finally {
+    serverCtx.release();
+  }
 });
 
-// Step 2: Poll GitHub for the access token
-router.get('/poll', async (c) => {
-  const deviceCode = c.req.query('device_code');
-  if (!deviceCode) {
-    return c.json({ error: 'Missing device_code query parameter' }, 400);
+// Step 2: Complete OAuth flow (polls for token)
+router.post('/callback', async (c) => {
+  let serverCtx;
+  try {
+    serverCtx = await acquireContext({ cwd: config.workspacesDir, env: process.env });
+  } catch (err) {
+    logger.error('Failed to acquire OpenCode server for auth callback:', err);
+    return c.json({ error: 'Failed to connect to OpenCode server' }, 500);
   }
 
-  const body = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID,
-    device_code: deviceCode,
-    grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-  });
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = serverCtx.client as any;
 
-  const res = await fetch(ACCESS_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    return c.json({ error: `GitHub returned ${res.status}: ${text}` }, 502);
-  }
-
-  const data = (await res.json()) as {
-    access_token?: string;
-    token_type?: string;
-    error?: string;
-    error_description?: string;
-  };
-
-  // GitHub returns error codes in the JSON body (not HTTP status) while waiting
-  if (data.error) {
-    // authorization_pending = user hasn't entered the code yet (keep polling)
-    // slow_down             = polling too fast (back off)
-    // expired_token         = device code expired
-    // access_denied         = user rejected
-    return c.json({
-      status: data.error,
-      description: data.error_description ?? '',
+    const result = await client.provider.oauth.callback({
+      path: { id: PROVIDER_ID },
+      body: { method: 0 },
+      query: { directory: config.workspacesDir },
     });
-  }
 
-  // Success — store the token in the settings table
-  if (data.access_token) {
-    const now = new Date().toISOString();
-    db.prepare(
-      `
-      INSERT INTO settings (key, value, is_secret, updated_at) VALUES (?, ?, 1, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value, is_secret = 1, updated_at = excluded.updated_at
-    `
-    ).run('GITHUB_TOKEN', data.access_token, now);
+    if (result.error) {
+      return c.json({ error: result.error }, 400);
+    }
 
-    // Invalidate pooled server contexts so the new token is picked up on the next run.
-    void invalidateAll();
+    // Store a marker so the UI knows Copilot is connected
+    // (actual token is managed by the SDK in ~/.local/share/opencode/auth.json)
+    settingsRepository.upsert({
+      key: 'GITHUB_TOKEN',
+      value: 'managed-by-sdk',
+      is_secret: true,
+    });
 
     return c.json({ status: 'success' });
+  } catch (err) {
+    logger.error('OAuth callback failed:', err);
+    return c.json({ error: `Callback failed: ${err}` }, 500);
+  } finally {
+    serverCtx.release();
   }
-
-  return c.json({
-    status: 'unknown',
-    description: 'Unexpected response from GitHub',
-  });
 });
 
 export default router;

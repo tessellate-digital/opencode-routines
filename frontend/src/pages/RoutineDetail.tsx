@@ -1,82 +1,101 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 import { useGlobalSSE } from '../hooks/useSSE';
 import { RunsTable } from '../components/RunsTable';
-import { CronPicker } from '../components/CronPicker';
-import { FileTypeFilter, type FileFilterValue } from '../components/FileTypeFilter';
-import { FolderPicker } from '../components/FolderPicker';
 import type { Routine, Trigger, Run } from '../lib/types';
 import { useHostMounts } from '../contexts/HostMountsContext';
 
-function StatusBadge({ enabled, inaccessible }: { enabled: boolean; inaccessible?: boolean }) {
-  if (inaccessible) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-[#fff3cd] text-[#856404]">
-        <span className="size-1.5 rounded-full bg-[#856404]" />
-        Workspace inaccessible
-      </span>
-    );
-  }
+function ChevronLeftIcon() {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        enabled ? 'bg-[#d1f5d3] text-[#1a7f37]' : 'bg-[#f5f5f7] text-[#6e6e73]'
-      }`}
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      <span className={`size-1.5 rounded-full ${enabled ? 'bg-[#1a7f37]' : 'bg-[#aeaeb2]'}`} />
-      {enabled ? 'Enabled' : 'Disabled'}
-    </span>
+      <path d="m10 3-5 5 5 5" />
+    </svg>
   );
 }
 
-function ConfigRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-2.5 text-sm">
-      <span className="text-[#6e6e73]">{label}</span>
-      <span className="text-[#1d1d1f]">{value}</span>
-    </div>
-  );
-}
-
-function TriggerConfig({ trigger }: { trigger: Trigger }) {
+function TriggerSummary({ trigger }: { trigger: Trigger }) {
   const { resolveHostPath } = useHostMounts();
   const cfg = trigger.config;
 
   if (trigger.type === 'cron') {
     return (
-      <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0]">
-        <ConfigRow
-          label="Schedule"
-          value={
-            <code className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f]">
-              {String(cfg.expression || '')}
-            </code>
-          }
-        />
+      <div className="trig-card mb-2">
+        <div className="trig-head cursor-default">
+          <span className="label">Cron</span>
+          <span className="summary">{String(cfg.expression || '')}</span>
+          <span className="code-chip ml-2">{String(cfg.expression || '')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (trigger.type === 'watcher') {
+    const events = Array.isArray(cfg.events) ? (cfg.events as string[]) : [];
+    const paths: string[] = Array.isArray(cfg.paths)
+      ? (cfg.paths as string[])
+      : typeof cfg.path === 'string' && cfg.path
+        ? [cfg.path as string]
+        : [];
+    const recursive = cfg.recursive !== false;
+    const fileFilter = cfg.fileFilter as { mode?: string; patterns?: string[] } | undefined;
+    const hasFilter =
+      fileFilter &&
+      fileFilter.mode !== 'none' &&
+      Array.isArray(fileFilter.patterns) &&
+      fileFilter.patterns.length > 0;
+    return (
+      <div className="trig-card mb-2">
+        <div className="trig-head cursor-default flex-wrap gap-1.5">
+          <span className="label">Filesystem</span>
+          <span className="summary font-mono text-xs">
+            {paths.map(resolveHostPath).join(', ') || '—'}
+          </span>
+          {!recursive && <span className="code-chip text-[10.5px]">top-level only</span>}
+        </div>
+        <div className="px-[14px] pt-2 pb-3 border-t border-t-[var(--border)] flex gap-2 flex-wrap items-center">
+          <span className="font-mono text-[11px] text-[color:var(--fg-dim)] uppercase tracking-[.06em]">
+            on
+          </span>
+          {events.map((ev) => (
+            <span key={ev} className="trig text-[11.5px]">
+              {ev}
+            </span>
+          ))}
+          {hasFilter && (
+            <>
+              <span className="font-mono text-[11px] text-[color:var(--fg-dim)] uppercase tracking-[.06em] ml-2">
+                {fileFilter.mode === 'exclude' ? 'except' : 'only'}
+              </span>
+              {fileFilter.patterns!.map((p) => (
+                <span key={p} className="code-chip text-[11px]">
+                  {p}
+                </span>
+              ))}
+            </>
+          )}
+        </div>
       </div>
     );
   }
 
   if (trigger.type === 'api') {
     return (
-      <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0]">
-        <ConfigRow
-          label="Endpoint"
-          value={
-            <code className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f]">
-              /hooks/api/{trigger.id}
-            </code>
-          }
-        />
-        <ConfigRow
-          label="Token"
-          value={
-            <code className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f]">
-              {String(cfg.token || '').slice(0, 8)}…
-            </code>
-          }
-        />
+      <div className="trig-card mb-2">
+        <div className="trig-head cursor-default">
+          <span className="label">API</span>
+          <span className="code-chip">/hooks/api/{trigger.id}</span>
+        </div>
       </div>
     );
   }
@@ -84,80 +103,11 @@ function TriggerConfig({ trigger }: { trigger: Trigger }) {
   if (trigger.type === 'github') {
     const events = Array.isArray(cfg.events) ? (cfg.events as string[]).join(', ') : '';
     return (
-      <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0]">
-        <ConfigRow label="Events" value={events || '—'} />
-        <ConfigRow
-          label="Secret"
-          value={
-            <code className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f]">
-              {String(cfg.secret || '').slice(0, 8)}…
-            </code>
-          }
-        />
-      </div>
-    );
-  }
-
-  if (trigger.type === 'watcher') {
-    const events = Array.isArray(cfg.events) ? (cfg.events as string[]).join(', ') : '';
-    // Support both legacy config.path and new config.paths
-    const paths: string[] = Array.isArray(cfg.paths)
-      ? (cfg.paths as string[])
-      : typeof cfg.path === 'string' && cfg.path
-        ? [cfg.path as string]
-        : [];
-    const rawFilter = cfg.fileFilter as { mode?: string; patterns?: string[] } | undefined;
-    const hasFilter =
-      rawFilter && Array.isArray(rawFilter.patterns) && rawFilter.patterns.length > 0;
-    return (
-      <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0]">
-        <ConfigRow
-          label={paths.length > 1 ? 'Paths' : 'Path'}
-          value={
-            paths.length > 0 ? (
-              <div className="flex flex-wrap gap-1 justify-end">
-                {paths.map((p) => (
-                  <code
-                    key={p}
-                    className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f]"
-                  >
-                    {resolveHostPath(p)}
-                  </code>
-                ))}
-              </div>
-            ) : (
-              '—'
-            )
-          }
-        />
-        <ConfigRow label="Events" value={events || '—'} />
-        {hasFilter && (
-          <ConfigRow
-            label="File filter"
-            value={
-              <span className={rawFilter!.mode === 'exclude' ? 'text-[#ff3b30]' : 'text-[#1a7f37]'}>
-                {rawFilter!.mode === 'exclude' ? 'Exclude' : 'Include'}:{' '}
-                {rawFilter!.patterns!.join(', ')}
-              </span>
-            }
-          />
-        )}
-        <ConfigRow
-          label="Endpoint"
-          value={
-            <code className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f]">
-              /hooks/watcher/{trigger.id}
-            </code>
-          }
-        />
-        <ConfigRow
-          label="Secret"
-          value={
-            <code className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f]">
-              {String(cfg.secret || '').slice(0, 8)}…
-            </code>
-          }
-        />
+      <div className="trig-card mb-2">
+        <div className="trig-head cursor-default">
+          <span className="label">GitHub</span>
+          <span className="summary">{events || '—'}</span>
+        </div>
       </div>
     );
   }
@@ -175,18 +125,7 @@ export default function RoutineDetail() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [showTriggerForm, setShowTriggerForm] = useState(false);
-  const [triggerType, setTriggerType] = useState<'cron' | 'api' | 'github' | 'watcher'>('cron');
-  const [cronExpression, setCronExpression] = useState('0 9 * * *');
-  const [ghEvents, setGhEvents] = useState('');
-  const [watcherEvents, setWatcherEvents] = useState<string[]>(['add', 'change', 'addDir']);
-  const [watcherPaths, setWatcherPaths] = useState<string[]>([]);
-  const [watcherFileFilter, setWatcherFileFilter] = useState<FileFilterValue>({
-    mode: 'include',
-    patterns: [],
-  });
-  const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -239,7 +178,7 @@ export default function RoutineDetail() {
   };
 
   const handleDelete = async () => {
-    if (!id || !confirm('Delete this routine and all its runs?')) return;
+    if (!id) return;
     try {
       await api.deleteRoutine(id);
       navigate('/routines');
@@ -248,335 +187,175 @@ export default function RoutineDetail() {
     }
   };
 
-  const handleDeleteTrigger = async (triggerId: string) => {
-    if (!confirm('Delete this trigger?')) return;
-    try {
-      await api.deleteTrigger(triggerId);
-      load();
-    } catch (e) {
-      alert('Error: ' + (e instanceof Error ? e.message : 'Unknown'));
-    }
-  };
-
-  const handleSaveTrigger = async () => {
-    if (!id || !routine) return;
-    let config: Record<string, unknown> = {};
-    if (triggerType === 'cron') {
-      if (!cronExpression) return alert('Enter a cron expression');
-      config = { expression: cronExpression };
-    } else if (triggerType === 'github') {
-      if (!ghEvents) return alert('Enter events');
-      config = {
-        events: ghEvents
-          .split(',')
-          .map((e) => e.trim())
-          .filter(Boolean),
-      };
-    } else if (triggerType === 'watcher') {
-      const paths =
-        watcherPaths.length > 0
-          ? watcherPaths
-          : routine.workspace_path
-            ? [routine.workspace_path]
-            : [];
-      if (paths.length === 0) return alert('No workspace folder linked to this routine.');
-      config = { paths, events: watcherEvents } as Record<string, unknown>;
-      if (watcherFileFilter.patterns.length > 0) {
-        (config as Record<string, unknown>).fileFilter = watcherFileFilter;
-      }
-    }
-    try {
-      await api.createTrigger(id, { type: triggerType, config });
-      setShowTriggerForm(false);
-      setCronExpression('0 9 * * *');
-      setGhEvents('');
-      setWatcherEvents(['add', 'change', 'addDir']);
-      setWatcherPaths([]);
-      setWatcherFileFilter({ mode: 'include', patterns: [] });
-      load();
-    } catch (e) {
-      alert('Error: ' + (e instanceof Error ? e.message : 'Unknown'));
-    }
-  };
-
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
-  if (error) return <p className="text-sm text-[#ff3b30]">Error: {error}</p>;
-  if (!routine) return <p className="text-sm text-[#ff3b30]">Routine not found</p>;
+  if (loading) return <p className="hint">Loading…</p>;
+  if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
+  if (!routine)
+    return <p className="text-[color:var(--status-failed)] text-[13px]">Routine not found</p>;
 
   return (
-    <div className="space-y-8">
-      {/* Workspace inaccessible warning */}
+    <div className="route-fade">
+      <Link to="/routines" className="back">
+        <ChevronLeftIcon /> Routines
+      </Link>
+
       {routine.workspace_path && !routine.workspace_accessible && (
-        <div className="rounded-lg border border-[#ffc9c9] bg-[#fff5f5] px-4 py-3 flex items-start gap-3">
-          <span className="shrink-0 mt-0.5 text-[#ff3b30] text-sm">!</span>
-          <div>
-            <p className="text-sm font-medium text-[#1d1d1f]">
-              Workspace folder is no longer accessible
-            </p>
-            <p className="mt-0.5 text-xs text-[#6e6e73]">
-              <code className="rounded bg-white/60 px-1 py-0.5 text-[11px]">
-                {routine.workspace_path}
-              </code>{' '}
-              cannot be reached. The bind-mount may have been removed. Runs will fail until the
-              folder is restored or a new workspace is selected.
-            </p>
-          </div>
+        <div
+          className="delete-confirm mb-4"
+          style={{
+            background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)',
+            borderColor: 'color-mix(in srgb, var(--status-warning) 25%, transparent)',
+          }}
+        >
+          <span className="font-semibold">!</span>
+          <span>
+            Workspace folder <code className="code-chip">{routine.workspace_path}</code> is
+            inaccessible. Runs will fail.
+          </span>
         </div>
       )}
 
-      {/* Header */}
-      <div>
-        <Link to="/routines" className="text-xs text-[#0071e3] hover:underline">
-          ← Routines
-        </Link>
-        <div className="mt-2 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold text-[#1d1d1f]">{routine.name}</h1>
-            <StatusBadge
-              enabled={routine.enabled}
-              inaccessible={!!(routine.workspace_path && !routine.workspace_accessible)}
-            />
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <button
-              onClick={handleRun}
-              className="btn btn-primary"
-              disabled={routine.workspace_path !== '' && !routine.workspace_accessible}
-              title={
-                routine.workspace_path && !routine.workspace_accessible
-                  ? 'Workspace folder is inaccessible'
-                  : undefined
-              }
-            >
-              Run now
-            </button>
-            {!(routine.workspace_path && !routine.workspace_accessible) && (
-              <button onClick={handleToggle} disabled={toggling} className="btn btn-secondary">
-                {toggling ? '…' : routine.enabled ? 'Disable' : 'Enable'}
-              </button>
-            )}
-            <Link to={`/routines/${id}/edit`} className="btn btn-secondary">
-              Edit
-            </Link>
-            <button onClick={handleDelete} className="btn btn-danger">
-              Delete
-            </button>
-          </div>
-        </div>
-        {routine.description && (
-          <p className="mt-2 text-sm text-[#6e6e73]">{routine.description}</p>
-        )}
-      </div>
-
-      {/* Config + Prompt */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="page-head">
         <div>
-          <h2 className="mb-2 text-xs font-medium text-[#6e6e73]">Configuration</h2>
-          <div className="rounded-lg border border-[#d1d1d6] divide-y divide-[#f0f0f0]">
-            <ConfigRow label="Model" value={routine.model || '—'} />
-            <ConfigRow label="Agent" value={routine.agent} />
-            <ConfigRow
-              label="Run mode"
-              value={routine.run_mode === 'foreground' ? 'Foreground only' : 'Background'}
-            />
-            {routine.workspace_path && (
-              <ConfigRow
-                label="Workspace"
-                value={
-                  <span className="flex items-center gap-1.5">
-                    <code
-                      className="rounded bg-[#f5f5f7] px-1.5 py-0.5 text-xs text-[#1d1d1f] truncate max-w-[200px]"
-                      title={routine.workspace_path}
-                    >
-                      {resolveHostName(routine.workspace_path)}
-                    </code>
-                    {!routine.workspace_accessible && (
-                      <span className="text-[10px] text-[#ff3b30]">inaccessible</span>
-                    )}
-                  </span>
-                }
-              />
-            )}
-            {routine.repository && <ConfigRow label="Repository" value={routine.repository} />}
-            {routine.repository && <ConfigRow label="Branch" value={routine.branch} />}
-          </div>
-        </div>
-        <div>
-          <h2 className="mb-2 text-xs font-medium text-[#6e6e73]">Prompt</h2>
-          <pre className="h-full max-h-52 overflow-auto rounded-lg border border-[#d1d1d6] bg-[#f5f5f7] px-4 py-3 text-xs leading-5 text-[#1d1d1f] whitespace-pre-wrap">
-            {routine.prompt}
-          </pre>
-        </div>
-      </div>
-
-      {/* Triggers */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[#1d1d1f]">Triggers</h2>
-          <button onClick={() => setShowTriggerForm((v) => !v)} className="btn btn-secondary">
-            {showTriggerForm ? 'Cancel' : 'Add trigger'}
-          </button>
-        </div>
-
-        {showTriggerForm && (
-          <div className="mb-4 rounded-lg border border-[#d1d1d6] p-4 space-y-3">
-            <div className="flex gap-3 text-sm">
-              {(['cron', 'api', 'github', 'watcher'] as const).map((t) => {
-                const disabled = t === 'watcher' && !routine.workspace_path;
-                return (
-                  <label
-                    key={t}
-                    className={`flex items-center gap-1.5 ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
-                  >
-                    <input
-                      type="radio"
-                      name="ttype"
-                      value={t}
-                      checked={triggerType === t}
-                      disabled={disabled}
-                      onChange={() => setTriggerType(t)}
-                    />
-                    {t === 'watcher' ? 'Filesystem' : t.charAt(0).toUpperCase() + t.slice(1)}
-                  </label>
-                );
+          <h1>{routine.name}</h1>
+          <div className="sub flex items-center gap-2">
+            <span
+              className={classNames('status', {
+                success: routine.enabled,
+                pending: !routine.enabled,
               })}
-            </div>
-            {triggerType === 'cron' && (
-              <CronPicker value={cronExpression} onChange={setCronExpression} />
-            )}
-            {triggerType === 'api' && (
-              <p className="text-sm text-[#6e6e73]">A token will be auto-generated.</p>
-            )}
-            {triggerType === 'github' && (
-              <input
-                className="input-field max-w-sm"
-                placeholder="push, pull_request.opened"
-                value={ghEvents}
-                onChange={(e) => setGhEvents(e.target.value)}
-              />
-            )}
-            {triggerType === 'watcher' && (
-              <div className="space-y-3">
-                {/* Watched paths */}
-                <div>
-                  <label className="mb-1.5 block text-xs text-[#6e6e73]">Watched paths</label>
-                  {(watcherPaths.length > 0
-                    ? watcherPaths
-                    : routine.workspace_path
-                      ? [routine.workspace_path]
-                      : []
-                  ).map((p) => (
-                    <span
-                      key={p}
-                      className="inline-flex items-center gap-1 mr-1.5 mb-1 rounded-full bg-[#f5f5f7] border border-[#d1d1d6] px-2 py-0.5 text-xs font-mono text-[#1d1d1f]"
-                    >
-                      {resolveHostPath(p).split('/').pop() || resolveHostPath(p)}
-                      {watcherPaths.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setWatcherPaths(watcherPaths.filter((x) => x !== p))}
-                          className="ml-0.5 text-[#ff3b30] hover:opacity-70"
-                        >
-                          &times;
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setShowFolderPicker(true)}
-                    className="btn btn-secondary text-xs mt-1"
-                  >
-                    Add path
-                  </button>
-                </div>
-
-                {/* Events */}
-                <div className="flex flex-wrap gap-3 text-sm">
-                  {[
-                    { value: 'add', label: 'File created' },
-                    { value: 'change', label: 'File changed' },
-                    { value: 'addDir', label: 'Folder created' },
-                    { value: 'unlink', label: 'File deleted' },
-                    { value: 'unlinkDir', label: 'Folder deleted' },
-                  ].map(({ value, label }) => (
-                    <label key={value} className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={watcherEvents.includes(value)}
-                        onChange={(e) =>
-                          setWatcherEvents(
-                            e.target.checked
-                              ? [...watcherEvents, value]
-                              : watcherEvents.filter((ev) => ev !== value)
-                          )
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-
-                {/* File type filter */}
-                <div>
-                  <label className="mb-1.5 block text-xs text-[#6e6e73]">File type filter</label>
-                  <FileTypeFilter value={watcherFileFilter} onChange={setWatcherFileFilter} />
-                </div>
-              </div>
-            )}
-            <div className="flex gap-2 pt-1">
-              <button onClick={handleSaveTrigger} className="btn btn-primary">
-                Save
+            >
+              <span className="dot" />
+              <span>{routine.enabled ? 'enabled' : 'paused'}</span>
+            </span>
+            {routine.description && <span>· {routine.description}</span>}
+          </div>
+        </div>
+        <div className="flex gap-2 items-center">
+          {confirmDelete ? (
+            <div className="delete-confirm">
+              <span>
+                Delete <strong>{routine.name}</strong>?
+              </span>
+              <button className="btn sm delete-rt" onClick={handleDelete}>
+                Yes, delete
               </button>
-              <button onClick={() => setShowTriggerForm(false)} className="btn btn-secondary">
+              <button className="btn sm" onClick={() => setConfirmDelete(false)}>
                 Cancel
               </button>
             </div>
-          </div>
-        )}
+          ) : (
+            <>
+              <button
+                className="btn run"
+                onClick={handleRun}
+                disabled={routine.workspace_path !== '' && !routine.workspace_accessible}
+              >
+                ▶ Run now
+              </button>
+              <Link to={`/routines/${id}/edit`} className="btn">
+                Edit
+              </Link>
+              <button className="btn" onClick={handleToggle} disabled={toggling}>
+                {toggling ? '…' : routine.enabled ? 'Pause' : 'Enable'}
+              </button>
+              <button className="btn delete-rt" onClick={() => setConfirmDelete(true)}>
+                Delete
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
-        {triggers.length ? (
-          <div className="space-y-3">
-            {triggers.map((t) => (
-              <div key={t.id}>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium capitalize text-[#1d1d1f]">{t.type}</span>
-                    {!t.enabled && (
-                      <span className="rounded-full bg-[#fff3cd] px-2 py-0.5 text-xs text-[#856404]">
-                        disabled
-                      </span>
-                    )}
-                  </div>
-                  <button onClick={() => handleDeleteTrigger(t.id)} className="btn btn-danger">
-                    Remove
-                  </button>
-                </div>
-                <TriggerConfig trigger={t} />
+      <div className="grid gap-5">
+        {/* Prompt */}
+        <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+            Prompt
+          </div>
+          <div className="font-mono text-[13px] leading-[1.65] whitespace-pre-wrap mt-1">
+            {routine.prompt}
+          </div>
+        </div>
+
+        {/* Config grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+              Model
+            </div>
+            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+              {routine.model || '—'}
+            </div>
+          </div>
+          <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+              Agent
+            </div>
+            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+              {routine.agent}
+            </div>
+          </div>
+          <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+              Run mode
+            </div>
+            <div className="text-sm font-medium text-[color:var(--fg)]">
+              {routine.run_mode === 'foreground' ? 'Foreground only' : 'Background'}
+            </div>
+          </div>
+          {routine.workspace_path && (
+            <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+                Workspace
               </div>
-            ))}
-          </div>
-        ) : (
-          !showTriggerForm && <p className="text-sm text-[#6e6e73]">No triggers configured.</p>
-        )}
-      </div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)] flex items-center gap-1.5">
+                {resolveHostName(routine.workspace_path)}
+                {!routine.workspace_accessible && (
+                  <span className="text-[10px] text-[color:var(--status-failed)]">
+                    inaccessible
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {routine.repository && (
+            <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+                Repository
+              </div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+                {routine.repository}
+              </div>
+            </div>
+          )}
+          {routine.repository && (
+            <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">
+                Branch
+              </div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">
+                {routine.branch}
+              </div>
+            </div>
+          )}
+        </div>
 
-      {/* Run History */}
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-[#1d1d1f]">Run history</h2>
-        <RunsTable runs={runs} />
-      </div>
+        {/* Triggers */}
+        <div>
+          <div className="section-h">Triggers · {triggers.length}</div>
+          {triggers.length > 0 ? (
+            triggers.map((t) => <TriggerSummary key={t.id} trigger={t} />)
+          ) : (
+            <p className="hint">No triggers — this routine runs only when invoked manually.</p>
+          )}
+        </div>
 
-      {showFolderPicker && (
-        <FolderPicker
-          value=""
-          onChange={(p) => {
-            if (!watcherPaths.includes(p)) setWatcherPaths([...watcherPaths, p]);
-            setShowFolderPicker(false);
-          }}
-          onClose={() => setShowFolderPicker(false)}
-        />
-      )}
+        {/* Run history */}
+        <div>
+          <div className="section-h">Recent runs · {runs.length}</div>
+          <RunsTable runs={runs} />
+        </div>
+      </div>
     </div>
   );
 }

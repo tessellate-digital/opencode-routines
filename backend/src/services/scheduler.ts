@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import * as fs from 'fs';
 import { db } from '../database';
 import { eventBus } from './eventBus';
+import { logger } from '../util/logger';
 import type { TriggerRow, RoutineRow } from '../types';
 
 class SchedulerService {
@@ -26,12 +27,12 @@ class SchedulerService {
         try {
           this.registerTrigger(trigger, routine);
         } catch (err) {
-          console.error(`Failed to register cron trigger ${trigger.id}:`, err);
+          logger.error(`Failed to register cron trigger ${trigger.id}:`, err);
         }
       }
     }
 
-    console.log(`Scheduler started with ${triggers.length} cron triggers`);
+    logger.info(`Scheduler started with ${triggers.length} cron triggers`);
   }
 
   shutdown(): void {
@@ -46,12 +47,12 @@ class SchedulerService {
     const expression = (triggerConfig.expression as string) ?? '';
 
     if (!expression) {
-      console.warn(`Cron trigger ${trigger.id} has no expression`);
+      logger.warn(`Cron trigger ${trigger.id} has no expression`);
       return;
     }
 
     if (!cron.validate(expression)) {
-      console.warn(`Cron trigger ${trigger.id} has invalid expression: ${expression}`);
+      logger.warn(`Cron trigger ${trigger.id} has invalid expression: ${expression}`);
       return;
     }
 
@@ -60,12 +61,12 @@ class SchedulerService {
 
     const task = cron.schedule(expression, () => {
       this.executeRoutine(routine.id, trigger.id).catch((err) =>
-        console.error(`Cron execution error for trigger ${trigger.id}:`, err)
+        logger.error(`Cron execution error for trigger ${trigger.id}:`, err)
       );
     });
 
     this.tasks.set(trigger.id, task);
-    console.log(`Registered cron trigger ${trigger.id}: ${expression}`);
+    logger.debug(`Registered cron trigger ${trigger.id}: ${expression}`);
   }
 
   unregisterTrigger(triggerId: string): void {
@@ -73,7 +74,7 @@ class SchedulerService {
     if (task) {
       task.stop();
       this.tasks.delete(triggerId);
-      console.log(`Unregistered cron trigger ${triggerId}`);
+      logger.debug(`Unregistered cron trigger ${triggerId}`);
     }
   }
 
@@ -97,7 +98,7 @@ class SchedulerService {
           throw new Error('not a directory');
         }
       } catch {
-        console.warn(
+        logger.warn(
           `Skipping cron run for routine ${routineId}: workspace folder is no longer accessible: ${routine.workspace_path}`
         );
         return;
@@ -106,7 +107,7 @@ class SchedulerService {
 
     // If the routine is set to foreground-only, skip when no browser clients are connected
     if (routine.run_mode === 'foreground' && !eventBus.hasActiveClients) {
-      console.log(
+      logger.debug(
         `Skipping cron run for routine ${routineId}: run_mode=foreground and no active clients`
       );
       return;
@@ -122,7 +123,7 @@ class SchedulerService {
 
     executor
       .startRun(runId, routine, routine.prompt)
-      .catch((err) => console.error(`Run ${runId} error:`, err));
+      .catch((err: unknown) => logger.error(`Run ${runId} error:`, err));
   }
 }
 

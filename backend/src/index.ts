@@ -10,6 +10,8 @@ import { schedulerService } from './services/scheduler';
 import { eventBus } from './services/eventBus';
 import { disposeAll as disposeServerPool, acquireContext } from './services/opencodeServerPool';
 import { flattenProviderModels } from './lib/modelUtils';
+import { logger } from './util/logger';
+import { runsRepository } from './repositories/runsRepository';
 import routinesRouter from './routes/routines';
 import triggersRouter from './routes/triggers';
 import runsRouter from './routes/runs';
@@ -227,12 +229,16 @@ if (fs.existsSync(frontendDist)) {
 
 // Start
 initDb();
+const staleCount = runsRepository.markStaleAsLost();
+if (staleCount > 0) {
+  logger.info(`Marked ${staleCount} stale run(s) as lost`);
+}
 schedulerService.start();
 
 // Register shutdown hooks so pooled opencode servers are cleaned up on exit
 async function shutdown(signal?: string) {
   if (signal) {
-    console.log(`Received ${signal}, shutting down…`);
+    logger.info(`Received ${signal}, shutting down…`);
   }
   await disposeServerPool();
   process.exit(0);
@@ -245,5 +251,5 @@ process.on('exit', () => {
 });
 
 serve({ fetch: app.fetch, port: config.port }, () => {
-  console.log(`Server running on http://0.0.0.0:${config.port}`);
+  logger.info(`Server running on http://0.0.0.0:${config.port}`);
 });

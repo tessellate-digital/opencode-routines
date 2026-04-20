@@ -1,10 +1,12 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import classNames from 'classnames';
 import { api } from '../lib/api';
 import type { Trigger } from '../lib/types';
 import { CronPicker } from '../components/CronPicker';
 import { FolderPicker } from '../components/FolderPicker';
 import { FileTypeFilter, type FileFilterValue } from '../components/FileTypeFilter';
+import { SelectDropdown, type SelectOption } from '../components/SelectDropdown';
 import { useHostMounts } from '../contexts/HostMountsContext';
 
 const FS_EVENTS = [
@@ -17,10 +19,6 @@ const FS_EVENTS = [
 
 type TriggerType = 'cron' | 'watcher';
 
-// ---------------------------------------------------------------------------
-// Local trigger draft — what the user edits before submit
-// ---------------------------------------------------------------------------
-
 interface CronDraft {
   type: 'cron';
   expression: string;
@@ -30,6 +28,7 @@ interface WatcherDraft {
   paths: string[];
   events: string[];
   fileFilter: FileFilterValue;
+  recursive: boolean;
 }
 type TriggerDraft = CronDraft | WatcherDraft;
 
@@ -40,6 +39,7 @@ function defaultDraft(type: TriggerType, workspacePath: string): TriggerDraft {
     paths: workspacePath ? [workspacePath] : [],
     events: ['add', 'change', 'addDir'],
     fileFilter: { mode: 'none', patterns: [] },
+    recursive: true,
   };
 }
 
@@ -50,13 +50,8 @@ function triggerSummary(d: TriggerDraft, resolve: (p: string) => string): string
 }
 
 function triggerToDraft(t: Trigger, routine: { workspace_path: string }): TriggerDraft {
-  if (t.type === 'cron') {
-    return {
-      type: 'cron',
-      expression: String(t.config.expression || '0 9 * * *'),
-    };
-  }
-  // watcher (skip unknown trigger types like github)
+  if (t.type === 'cron')
+    return { type: 'cron', expression: String(t.config.expression || '0 9 * * *') };
   const paths: string[] = Array.isArray(t.config.paths)
     ? (t.config.paths as string[])
     : typeof t.config.path === 'string' && t.config.path
@@ -84,152 +79,9 @@ function triggerToDraft(t: Trigger, routine: { workspace_path: string }): Trigge
       ? (t.config.events as string[])
       : ['add', 'change', 'addDir'],
     fileFilter,
+    recursive: t.config.recursive !== false,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Filterable model combobox
-// ---------------------------------------------------------------------------
-
-interface ModelSelectProps {
-  value: string;
-  onChange: (v: string) => void;
-  favouriteModels: string[];
-  allModels: string[];
-}
-
-function ModelSelect({ value, onChange, favouriteModels, allModels }: ModelSelectProps) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
-
-  const favouriteSet = new Set(favouriteModels);
-  const q = query.toLowerCase();
-
-  const filteredFavourites = favouriteModels.filter((m) => !q || m.toLowerCase().includes(q));
-  const filteredOthers = allModels.filter(
-    (m) => !favouriteSet.has(m) && (!q || m.toLowerCase().includes(q))
-  );
-
-  const groupedOthers: Record<string, string[]> = {};
-  for (const m of filteredOthers) {
-    const [provider] = m.split('/', 1);
-    if (!groupedOthers[provider]) groupedOthers[provider] = [];
-    groupedOthers[provider].push(m);
-  }
-
-  const handleSelect = (m: string) => {
-    onChange(m);
-    setOpen(false);
-    setQuery('');
-  };
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="select-field w-full text-left flex items-center justify-between gap-2"
-      >
-        <span className="truncate text-sm">
-          {value || <span className="text-[#6e6e73]">Select a model…</span>}
-        </span>
-        <svg
-          className={`size-4 shrink-0 text-[#6e6e73] transition-transform ${open ? 'rotate-180' : ''}`}
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.937a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.061z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-[#d1d1d6] bg-white shadow-lg">
-          <div className="p-2 border-b border-[#f0f0f0]">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter models…"
-              className="input-field text-sm py-1.5"
-            />
-          </div>
-
-          <div className="max-h-64 overflow-y-auto py-1">
-            {filteredFavourites.length > 0 && (
-              <>
-                <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6e6e73]">
-                  Favourites
-                </div>
-                {filteredFavourites.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => handleSelect(m)}
-                    className={`w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5f5f7] truncate ${m === value ? 'font-medium text-[#0071e3]' : 'text-[#1d1d1f]'}`}
-                  >
-                    {m}
-                  </button>
-                ))}
-                {filteredOthers.length > 0 && <div className="my-1 border-t border-[#f0f0f0]" />}
-              </>
-            )}
-
-            {Object.entries(groupedOthers)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([provider, list]) => (
-                <div key={provider}>
-                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6e6e73]">
-                    {provider}
-                  </div>
-                  {list.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => handleSelect(m)}
-                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-[#f5f5f7] truncate ${m === value ? 'font-medium text-[#0071e3]' : 'text-[#1d1d1f]'}`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              ))}
-
-            {filteredFavourites.length === 0 && filteredOthers.length === 0 && (
-              <p className="px-3 py-2 text-sm text-[#6e6e73]">No models match "{query}"</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Trigger card — inline config editor for a single trigger draft
-// ---------------------------------------------------------------------------
 
 function TriggerCard({
   draft,
@@ -258,109 +110,109 @@ function TriggerCard({
   const summary = triggerSummary(draft, resolveHostPath);
 
   return (
-    <div className="rounded-lg border border-[#d1d1d6] overflow-hidden">
-      {/* Header — always visible */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#f5f5f7]">
+    <div className={classNames('trig-card', { open: !collapsed })}>
+      <div className="trig-head" onClick={onToggleCollapse}>
+        <span className="caret">
+          <svg
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m6 3 5 5-5 5" />
+          </svg>
+        </span>
+        <span className="label">{typeLabel}</span>
+        <span className="summary">{summary}</span>
         <button
-          type="button"
-          onClick={onToggleCollapse}
-          className="flex items-center gap-2 text-sm font-medium text-[#1d1d1f] hover:text-[#0071e3]"
+          className="remove"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
         >
-          <span className={`text-[10px] transition-transform ${collapsed ? '' : 'rotate-90'}`}>
-            &rsaquo;
-          </span>
-          <span>{typeLabel}</span>
-          {collapsed && (
-            <span className="text-xs font-normal text-[#6e6e73] truncate max-w-sm">{summary}</span>
-          )}
-        </button>
-        <button type="button" onClick={onRemove} className="text-xs text-[#ff3b30] hover:underline">
           Remove
         </button>
       </div>
-
-      {/* Body — collapsible */}
       {!collapsed && (
-        <div className="px-3 py-3 space-y-3">
+        <div className="py-[14px] px-4 pb-4 border-t border-[var(--border)] bg-[var(--surface)] grid gap-[14px]">
           {draft.type === 'cron' && (
             <CronPicker
               value={draft.expression}
               onChange={(v) => onChange({ ...draft, expression: v })}
             />
           )}
-
           {draft.type === 'watcher' && (
-            <div className="space-y-3">
-              {/* Watched paths */}
+            <div className="grid gap-[14px]">
               <div>
-                <label className="mb-1.5 block text-xs text-[#6e6e73]">Watched paths</label>
+                <label className="text-xs text-[color:var(--fg-dim)] block mb-1.5">
+                  Watched paths
+                </label>
                 {draft.paths.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {draft.paths.map((p) => (
-                      <span
-                        key={p}
-                        className="inline-flex items-center gap-1 rounded-full bg-[#f5f5f7] border border-[#d1d1d6] px-2 py-0.5 text-xs font-mono text-[#1d1d1f]"
-                      >
+                      <span key={p} className="code-chip inline-flex items-center gap-1">
                         {resolveHostPath(p).split('/').pop() || resolveHostPath(p)}
                         <button
                           type="button"
                           onClick={() =>
-                            onChange({
-                              ...draft,
-                              paths: draft.paths.filter((x) => x !== p),
-                            })
+                            onChange({ ...draft, paths: draft.paths.filter((x) => x !== p) })
                           }
-                          className="ml-0.5 text-[#ff3b30] hover:opacity-70"
+                          className="text-[color:var(--status-failed)] cursor-pointer bg-none border-0 p-0"
                         >
-                          &times;
+                          ×
                         </button>
                       </span>
                     ))}
                   </div>
                 )}
                 {hasMounts !== false && (
-                  <button
-                    type="button"
-                    onClick={() => onPickFolder(index)}
-                    className="btn btn-secondary text-xs"
-                  >
+                  <button type="button" className="btn sm" onClick={() => onPickFolder(index)}>
                     Add path
                   </button>
                 )}
                 {draft.paths.length === 0 && !workspacePath && (
-                  <p className="text-xs text-[#6e6e73]">
-                    No workspace folder selected. Select one above first.
-                  </p>
+                  <p className="hint">No workspace folder selected.</p>
                 )}
               </div>
-
-              {/* Events */}
+              <label className="flex items-center gap-2 cursor-pointer text-[13px]">
+                <input
+                  type="checkbox"
+                  checked={draft.recursive}
+                  onChange={(e) => onChange({ ...draft, recursive: e.target.checked })}
+                />
+                <span>Watch subfolders</span>
+              </label>
               <div>
-                <label className="mb-1.5 block text-xs text-[#6e6e73]">Events</label>
-                <div className="flex flex-wrap gap-3 text-sm">
+                <label className="text-xs text-[color:var(--fg-dim)] block mb-1.5">Events</label>
+                <div className="chip-row">
                   {FS_EVENTS.map(({ value, label }) => (
-                    <label key={value} className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={draft.events.includes(value)}
-                        onChange={(e) =>
-                          onChange({
-                            ...draft,
-                            events: e.target.checked
-                              ? [...draft.events, value]
-                              : draft.events.filter((ev) => ev !== value),
-                          })
-                        }
-                      />
+                    <button
+                      type="button"
+                      key={value}
+                      className={classNames('chip', { active: draft.events.includes(value) })}
+                      onClick={() =>
+                        onChange({
+                          ...draft,
+                          events: draft.events.includes(value)
+                            ? draft.events.filter((ev) => ev !== value)
+                            : [...draft.events, value],
+                        })
+                      }
+                    >
                       {label}
-                    </label>
+                    </button>
                   ))}
                 </div>
               </div>
-
-              {/* File type filter */}
               <div>
-                <label className="mb-1.5 block text-xs text-[#6e6e73]">File type filter</label>
+                <label className="text-xs text-[color:var(--fg-dim)] block mb-1.5">
+                  File type filter
+                </label>
                 <FileTypeFilter
                   value={draft.fileFilter}
                   onChange={(v) => onChange({ ...draft, fileFilter: v })}
@@ -373,10 +225,6 @@ function TriggerCard({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Main form
-// ---------------------------------------------------------------------------
 
 export default function RoutineForm() {
   const { id } = useParams<{ id: string }>();
@@ -405,7 +253,6 @@ export default function RoutineForm() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
-  // Which watcher trigger index to add a path to (null = workspace folder picker)
   const [folderPickerTarget, setFolderPickerTarget] = useState<number | null>(null);
   const [hasMounts, setHasMounts] = useState<boolean | null>(null);
   const [addingTriggerType, setAddingTriggerType] = useState<TriggerType | null>(null);
@@ -450,15 +297,10 @@ export default function RoutineForm() {
         if (triggers && triggers.length > 0) {
           setExistingTriggers(triggers);
           const drafts = triggers.map((t) =>
-            triggerToDraft(t, {
-              workspace_path: routine?.workspace_path || '',
-            })
+            triggerToDraft(t, { workspace_path: routine?.workspace_path || '' })
           );
           setTriggerDrafts(drafts);
-          // Auto-collapse if 3+
-          if (drafts.length >= 3) {
-            setCollapsedTriggers(new Set(drafts.map((_, i) => i)));
-          }
+          if (drafts.length >= 3) setCollapsedTriggers(new Set(drafts.map((_, i) => i)));
         }
       } catch {
         /* non-critical */
@@ -480,7 +322,6 @@ export default function RoutineForm() {
       setSubmitting(false);
       return;
     }
-
     const data = {
       name: form.name,
       description: form.description,
@@ -494,38 +335,27 @@ export default function RoutineForm() {
       run_mode: form.run_mode,
       workspace_path: form.workspace_path,
     };
-
     try {
       const res = isEdit ? await api.updateRoutine(id!, data) : await api.createRoutine(data);
       const routineId = res.id;
-
-      // Delete all existing triggers, then create the new set
-      if (isEdit) {
-        await Promise.all(existingTriggers.map((t) => api.deleteTrigger(t.id)));
-      }
-
+      if (isEdit) await Promise.all(existingTriggers.map((t) => api.deleteTrigger(t.id)));
       for (const draft of triggerDrafts) {
-        if (draft.type === 'cron') {
-          if (draft.expression) {
-            await api.createTrigger(routineId, {
-              type: 'cron',
-              config: { expression: draft.expression },
-            });
-          }
-        } else if (draft.type === 'watcher') {
-          if (draft.paths.length > 0) {
-            const config: Record<string, unknown> = {
-              paths: draft.paths,
-              events: draft.events,
-            };
-            if (draft.fileFilter.mode !== 'none' && draft.fileFilter.patterns.length > 0) {
-              config.fileFilter = draft.fileFilter;
-            }
-            await api.createTrigger(routineId, { type: 'watcher', config });
-          }
+        if (draft.type === 'cron' && draft.expression) {
+          await api.createTrigger(routineId, {
+            type: 'cron',
+            config: { expression: draft.expression },
+          });
+        } else if (draft.type === 'watcher' && draft.paths.length > 0) {
+          const config: Record<string, unknown> = {
+            paths: draft.paths,
+            events: draft.events,
+            recursive: draft.recursive,
+          };
+          if (draft.fileFilter.mode !== 'none' && draft.fileFilter.patterns.length > 0)
+            config.fileFilter = draft.fileFilter;
+          await api.createTrigger(routineId, { type: 'watcher', config });
         }
       }
-
       navigate(`/routines/${routineId}`);
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'));
@@ -538,19 +368,13 @@ export default function RoutineForm() {
     const draft = defaultDraft(type, form.workspace_path);
     setTriggerDrafts((prev) => [...prev, draft]);
     setAddingTriggerType(null);
-    // If we now have 3+, collapse all except the new one
     setCollapsedTriggers((prev) => {
-      if (triggerDrafts.length + 1 >= 3) {
-        return new Set(triggerDrafts.map((_, i) => i)); // collapse all old ones
-      }
+      if (triggerDrafts.length + 1 >= 3) return new Set(triggerDrafts.map((_, i) => i));
       return prev;
     });
   };
-
-  const updateDraft = (index: number, draft: TriggerDraft) => {
+  const updateDraft = (index: number, draft: TriggerDraft) =>
     setTriggerDrafts((prev) => prev.map((d, i) => (i === index ? draft : d)));
-  };
-
   const removeDraft = (index: number) => {
     setTriggerDrafts((prev) => prev.filter((_, i) => i !== index));
     setCollapsedTriggers((prev) => {
@@ -562,7 +386,6 @@ export default function RoutineForm() {
       return next;
     });
   };
-
   const toggleCollapse = (index: number) => {
     setCollapsedTriggers((prev) => {
       const next = new Set(prev);
@@ -571,123 +394,125 @@ export default function RoutineForm() {
       return next;
     });
   };
-
   const openFolderPickerForTrigger = (index: number) => {
     setFolderPickerTarget(index);
     setShowFolderPicker(true);
   };
-
   const handleFolderPicked = (path: string) => {
     if (folderPickerTarget !== null) {
-      // Adding a path to a watcher trigger draft
       const draft = triggerDrafts[folderPickerTarget];
-      if (draft?.type === 'watcher' && !draft.paths.includes(path)) {
-        updateDraft(folderPickerTarget, {
-          ...draft,
-          paths: [...draft.paths, path],
-        });
-      }
+      if (draft?.type === 'watcher' && !draft.paths.includes(path))
+        updateDraft(folderPickerTarget, { ...draft, paths: [...draft.paths, path] });
     } else {
-      // Setting the workspace path
       setForm((f) => ({ ...f, workspace_path: path }));
     }
     setShowFolderPicker(false);
     setFolderPickerTarget(null);
   };
 
-  const favouriteModels = favourites.filter((m) => models.includes(m));
+  const favouriteSet = new Set(favourites.filter((m) => models.includes(m)));
+  const modelOptions: SelectOption[] = [
+    ...favourites
+      .filter((m) => models.includes(m))
+      .map((m) => ({ value: m, label: m, group: 'Favourites' })),
+    ...models
+      .filter((m) => !favouriteSet.has(m))
+      .map((m) => ({ value: m, label: m, group: m.split('/', 1)[0] })),
+  ];
 
-  if (loading) return <p className="text-sm text-[#6e6e73]">Loading…</p>;
+  if (loading) return <p className="hint">Loading…</p>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link to="/routines" className="text-xs text-[#0071e3] hover:underline">
-          ← Routines
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-[#1d1d1f]">
-          {isEdit ? 'Edit' : 'New'} Routine
-        </h1>
+    <div className="route-fade max-w-[820px]">
+      <Link to="/routines" className="back">
+        <svg
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m10 3-5 5 5 5" />
+        </svg>
+        Routines
+      </Link>
+      <div className="page-head">
+        <div>
+          <h1>{isEdit ? 'Edit' : 'New'} Routine</h1>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">Name</label>
+      <form onSubmit={handleSubmit} className="grid gap-5">
+        <div className="form-row">
+          <label>Name</label>
           <input
+            className="input"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="input-field"
             required
           />
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">Description</label>
+        <div className="form-row">
+          <label>Description</label>
           <input
+            className="input"
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            className="input-field"
           />
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">Prompt</label>
+        <div className="form-row">
+          <label>Prompt</label>
+          <div className="hint">What the agent should do when a trigger fires.</div>
           <textarea
+            className="textarea"
             value={form.prompt}
             onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
-            rows={6}
-            className="textarea-field font-mono"
             required
           />
         </div>
 
-        {/* Workspace folder */}
-        <div>
-          <label
-            className={`mb-1.5 block text-sm font-medium ${hasMounts === false ? 'text-[#6e6e73]' : 'text-[#1d1d1f]'}`}
-          >
-            Workspace folder
-          </label>
+        {/* Workspace */}
+        <div className="form-row">
+          <label>Workspace folder</label>
           {hasMounts === false ? (
-            <p className="text-xs text-[#6e6e73]">
+            <p className="hint">
               No folders mounted. Add a volume to{' '}
-              <span className="font-mono">docker-compose.yml</span> to enable this:{' '}
-              <span className="font-mono">- /your/path:/workspaces/my-project</span>
+              <span className="code-chip">docker-compose.yml</span>.
             </p>
           ) : (
             <>
-              <p className="mb-2 text-xs text-[#6e6e73]">
-                Select a folder mounted into the container under{' '}
-                <span className="font-mono">/workspaces</span>.
+              <p className="hint mb-2">
+                Select a folder mounted under <span className="code-chip">/workspaces</span>.
               </p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  className="btn"
                   onClick={() => {
                     setFolderPickerTarget(null);
                     setShowFolderPicker(true);
                   }}
                   disabled={hasMounts === null}
-                  className="btn btn-secondary flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <span>📁</span>
-                  {form.workspace_path ? 'Change folder' : 'Select folder'}
+                  📁 {form.workspace_path ? 'Change folder' : 'Select folder'}
                 </button>
                 {form.workspace_path && (
                   <button
                     type="button"
+                    className="text-xs text-[color:var(--status-failed)] bg-none border-0 cursor-pointer"
                     onClick={() => setForm((f) => ({ ...f, workspace_path: '' }))}
-                    className="text-xs text-[#ff3b30] hover:underline"
                   >
                     Clear
                   </button>
                 )}
               </div>
               {form.workspace_path && (
-                <p
-                  className="mt-1.5 font-mono text-xs text-[#1d1d1f] truncate"
-                  title={resolveHostPath(form.workspace_path)}
-                >
+                <p className="mt-1.5 font-mono text-xs text-[color:var(--fg)]">
                   {resolveHostPath(form.workspace_path)}
                 </p>
               )}
@@ -695,224 +520,126 @@ export default function RoutineForm() {
           )}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">Model</label>
-            <ModelSelect
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="form-row !mb-0">
+            <label>Model</label>
+            <SelectDropdown
               value={form.model}
               onChange={(v) => setForm((f) => ({ ...f, model: v }))}
-              favouriteModels={favouriteModels}
-              allModels={models}
+              options={modelOptions}
+              placeholder="Select a model…"
+              filterable
             />
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">Agent</label>
+          <div className="form-row !mb-0">
+            <label>Agent</label>
             <input
+              className="input"
               value={form.agent}
               onChange={(e) => setForm((f) => ({ ...f, agent: e.target.value }))}
-              className="input-field"
             />
           </div>
         </div>
 
         {/* Triggers */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">Trigger</label>
-
-          {/* Quick radio selector — controls the first trigger slot */}
-          <div className="flex gap-4 text-sm">
-            {(['none', 'cron', 'watcher'] as const).map((t) => {
-              const disabled = t === 'watcher' && !form.workspace_path;
-              const checked =
-                t === 'none'
-                  ? triggerDrafts.length === 0
-                  : triggerDrafts.length > 0 && triggerDrafts[0].type === t;
-              return (
-                <label
-                  key={t}
-                  className={`flex items-center gap-1.5 ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
-                >
-                  <input
-                    type="radio"
-                    name="trigger_type"
-                    value={t}
-                    checked={checked}
-                    disabled={disabled}
-                    onChange={() => {
-                      if (t === 'none') {
-                        setTriggerDrafts([]);
-                      } else if (triggerDrafts.length === 0) {
-                        setTriggerDrafts([defaultDraft(t, form.workspace_path)]);
-                      } else {
-                        // Replace first draft's type
-                        setTriggerDrafts([
-                          defaultDraft(t, form.workspace_path),
-                          ...triggerDrafts.slice(1),
-                        ]);
-                      }
-                    }}
-                  />
-                  {t === 'none' ? 'None' : t === 'cron' ? 'Cron' : 'Filesystem'}
-                </label>
-              );
-            })}
+          <label className="text-[12.5px] font-medium block mb-1">Triggers</label>
+          <div className="hint mb-2.5">
+            Zero or more · any trigger starts the routine. No triggers = manual only.
           </div>
-          {!form.workspace_path && (
-            <p className="mt-1.5 text-xs text-[#6e6e73]">
-              Select a workspace folder above to enable filesystem triggers.
-            </p>
-          )}
 
-          {/* Inline config for the first trigger */}
-          {triggerDrafts.length > 0 && (
-            <div className="mt-3">
-              <TriggerCard
-                draft={triggerDrafts[0]}
-                index={0}
-                onChange={(d) => updateDraft(0, d)}
-                onRemove={() => removeDraft(0)}
-                workspacePath={form.workspace_path}
-                hasMounts={hasMounts}
-                resolveHostPath={resolveHostPath}
-                onPickFolder={openFolderPickerForTrigger}
-                collapsed={false}
-                onToggleCollapse={() => {}}
+          {triggerDrafts.map((draft, i) => (
+            <TriggerCard
+              key={i}
+              draft={draft}
+              index={i}
+              onChange={(d) => updateDraft(i, d)}
+              onRemove={() => removeDraft(i)}
+              workspacePath={form.workspace_path}
+              hasMounts={hasMounts}
+              resolveHostPath={resolveHostPath}
+              onPickFolder={openFolderPickerForTrigger}
+              collapsed={collapsedTriggers.has(i)}
+              onToggleCollapse={() => toggleCollapse(i)}
+            />
+          ))}
+
+          {addingTriggerType === null ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 py-1.5 px-2.5 rounded-[6px] text-[13px] text-[color:var(--accent)] font-medium cursor-pointer border-0 bg-transparent hover:bg-[var(--accent-soft)]"
+              onClick={() => setAddingTriggerType('cron')}
+            >
+              + Add trigger
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 mt-2">
+              <SelectDropdown
+                value={addingTriggerType || 'cron'}
+                onChange={(v) => setAddingTriggerType(v as 'cron' | 'watcher')}
+                options={[
+                  { value: 'cron', label: 'Cron (scheduled)' },
+                  {
+                    value: 'watcher',
+                    label: 'Filesystem (watch for changes)',
+                    disabled: !form.workspace_path,
+                  },
+                ]}
+                placeholder="Trigger type"
               />
-            </div>
-          )}
-
-          {/* Additional triggers (2nd, 3rd, ...) */}
-          {triggerDrafts.length > 1 && (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs font-medium text-[#6e6e73]">Additional triggers</p>
-              {triggerDrafts.slice(1).map((draft, i) => {
-                const realIndex = i + 1;
-                return (
-                  <TriggerCard
-                    key={realIndex}
-                    draft={draft}
-                    index={realIndex}
-                    onChange={(d) => updateDraft(realIndex, d)}
-                    onRemove={() => removeDraft(realIndex)}
-                    workspacePath={form.workspace_path}
-                    hasMounts={hasMounts}
-                    resolveHostPath={resolveHostPath}
-                    onPickFolder={openFolderPickerForTrigger}
-                    collapsed={collapsedTriggers.has(realIndex)}
-                    onToggleCollapse={() => toggleCollapse(realIndex)}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {/* Add another trigger — only if there's already at least one */}
-          {triggerDrafts.length > 0 && (
-            <div className="mt-2">
-              {addingTriggerType === null ? (
-                <button
-                  type="button"
-                  onClick={() => setAddingTriggerType('cron')}
-                  className="text-xs text-[#0071e3] hover:underline"
-                >
-                  + Add another trigger
-                </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <select
-                    value={addingTriggerType}
-                    onChange={(e) => setAddingTriggerType(e.target.value as TriggerType)}
-                    className="select-field text-sm max-w-[160px]"
-                  >
-                    <option value="cron">Cron</option>
-                    <option value="watcher" disabled={!form.workspace_path}>
-                      Filesystem
-                    </option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => addTrigger(addingTriggerType)}
-                    className="btn btn-primary text-xs"
-                  >
-                    Add
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddingTriggerType(null)}
-                    className="btn btn-secondary text-xs"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
+              <button
+                type="button"
+                className="btn primary sm"
+                onClick={() => addTrigger(addingTriggerType)}
+              >
+                Add
+              </button>
+              <button type="button" className="btn sm" onClick={() => setAddingTriggerType(null)}>
+                Cancel
+              </button>
             </div>
           )}
         </div>
 
+        {/* Run mode */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">
-            Environment variables <span className="font-normal text-[#6e6e73]">(JSON)</span>
-          </label>
-          <textarea
-            value={form.env_vars}
-            onChange={(e) => setForm((f) => ({ ...f, env_vars: e.target.value }))}
-            rows={3}
-            className="textarea-field font-mono"
-          />
-        </div>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.enabled}
-            onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
-          />
-          <span className="text-[#1d1d1f]">Enabled</span>
-        </label>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-[#1d1d1f]">Run mode</label>
-          <div className="flex flex-col gap-2 text-sm">
-            <label className="flex items-start gap-2 cursor-pointer">
+          <label className="text-[12.5px] font-medium block mb-3">Run mode</label>
+          {[
+            {
+              id: 'background',
+              label: 'Background',
+              desc: 'runs on schedule even when the app is closed',
+            },
+            { id: 'foreground', label: 'Foreground', desc: 'only runs while the app is open' },
+          ].map((opt) => (
+            <label key={opt.id} className="flex items-center gap-2.5 py-2.5 cursor-pointer text-sm">
               <input
                 type="radio"
-                name="run_mode"
-                value="background"
-                className="mt-0.5"
-                checked={form.run_mode === 'background'}
-                onChange={() => setForm((f) => ({ ...f, run_mode: 'background' }))}
+                name="runMode"
+                value={opt.id}
+                checked={form.run_mode === opt.id}
+                onChange={() =>
+                  setForm((f) => ({ ...f, run_mode: opt.id as 'background' | 'foreground' }))
+                }
+                className="w-[18px] h-[18px] accent-[var(--accent)] shrink-0 cursor-pointer"
               />
               <span>
-                <span className="font-medium text-[#1d1d1f]">Background</span>
-                <span className="ml-1.5 text-[#6e6e73]">
-                  — runs on schedule even when the app is closed
-                </span>
+                <span className="font-semibold">{opt.label}</span>
+                <span className="text-[color:var(--fg-muted)] font-normal"> — {opt.desc}</span>
               </span>
             </label>
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="run_mode"
-                value="foreground"
-                className="mt-0.5"
-                checked={form.run_mode === 'foreground'}
-                onChange={() => setForm((f) => ({ ...f, run_mode: 'foreground' }))}
-              />
-              <span>
-                <span className="font-medium text-[#1d1d1f]">Foreground</span>
-                <span className="ml-1.5 text-[#6e6e73]">
-                  — only runs while the app is open in a browser
-                </span>
-              </span>
-            </label>
-          </div>
+          ))}
         </div>
 
-        <div className="flex gap-2 pt-1">
-          <button type="submit" disabled={submitting} className="btn btn-primary">
+        <div className="flex gap-2 mt-2.5">
+          <button
+            type="submit"
+            disabled={submitting}
+            className={classNames('btn primary', { 'opacity-50': submitting })}
+          >
             {submitting ? 'Saving…' : 'Save routine'}
           </button>
-          <Link to={isEdit ? `/routines/${id}` : '/routines'} className="btn btn-secondary">
+          <Link to={isEdit ? `/routines/${id}` : '/routines'} className="btn">
             Cancel
           </Link>
         </div>

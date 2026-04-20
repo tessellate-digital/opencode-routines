@@ -5,16 +5,18 @@ services:
       dockerfile: backend/Dockerfile
     volumes:
       - db-data:/data
+      - opencode-sessions:/root/.local/share/opencode
       - /Users/loicmarcos/Desktop:/workspaces/user-data/desktop
     environment:
       - DATABASE_URL=sqlite:////data/routines.db
       - WORKSPACES_DIR=/workspaces/user-data
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     restart: unless-stopped
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         - VITE_DEV=${VITE_DEV:-}
     ports:
@@ -25,4 +27,5 @@ services:
 
 volumes:
   db-data:
+  opencode-sessions:
   workspaces:

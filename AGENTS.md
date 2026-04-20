@@ -82,7 +82,6 @@ opencode-routines/
 │   │       ├── scheduler.ts    # node-cron wrapper for cron triggers
 │   │       ├── github.ts       # HMAC verification + event parsing
 │   │       └── eventBus.ts     # SSE broadcast to all connected clients
-│   └── static/                 # Legacy Vanilla JS fallback (kept as safety net)
 │
 ├── frontend/
 │   ├── Dockerfile              # Multi-stage: Vite build → nginx serve

@@ -1,2703 +1,863 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenCode Routines</title>
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
+<!DOCTYPE html>
+<html lang="en" class="theme-universe">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Opencode Routines</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: ["class"],
+      theme: {
+        container: {
+          center: true,
+          padding: "1.5rem",
+          screens: { "2xl": "1280px" },
+        },
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['"Instrument Serif"', 'serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            border: "hsl(var(--border))",
+            "border-strong": "hsl(var(--border-strong))",
+            input: "hsl(var(--input))",
+            ring: "hsl(var(--ring))",
+            background: "hsl(var(--background))",
+            foreground: "hsl(var(--foreground))",
+            canvas: "hsl(var(--canvas))",
+            surface: "hsl(var(--surface))",
+            primary: {
+              DEFAULT: "hsl(var(--primary))",
+              foreground: "hsl(var(--primary-foreground))",
+            },
+            secondary: {
+              DEFAULT: "hsl(var(--secondary))",
+              foreground: "hsl(var(--secondary-foreground))",
+            },
+            destructive: {
+              DEFAULT: "hsl(var(--destructive))",
+              foreground: "hsl(var(--destructive-foreground))",
+              soft: "hsl(var(--destructive-soft))",
+            },
+            muted: {
+              DEFAULT: "hsl(var(--muted))",
+              foreground: "hsl(var(--muted-foreground))",
+            },
+            accent: {
+              DEFAULT: "hsl(var(--accent))",
+              foreground: "hsl(var(--accent-foreground))",
+              soft: "hsl(var(--accent-soft))",
+              warm: "hsl(var(--accent-warm))",
+              "warm-soft": "hsl(var(--accent-warm-soft))",
+            },
+            success: {
+              DEFAULT: "hsl(var(--success))",
+              soft: "hsl(var(--success-soft))",
+            },
+            warning: {
+              DEFAULT: "hsl(var(--warning))",
+              soft: "hsl(var(--warning-soft))",
+            },
+            popover: {
+              DEFAULT: "hsl(var(--popover))",
+              foreground: "hsl(var(--popover-foreground))",
+            },
+            card: {
+              DEFAULT: "hsl(var(--card))",
+              foreground: "hsl(var(--card-foreground))",
+            },
+          },
+          borderRadius: {
+            lg: "var(--radius)",
+            md: "calc(var(--radius) - 2px)",
+            sm: "calc(var(--radius) - 4px)",
+          },
+          boxShadow: {
+            sm: "var(--shadow-sm)",
+            md: "var(--shadow-md)",
+            lg: "var(--shadow-lg)",
+            accent: "var(--shadow-accent)",
+            warm: "var(--shadow-warm)",
+          },
+          keyframes: {
+            "fade-in-up": { "0%": { opacity: "0", transform: "translateY(8px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
+            "pulse-soft": { "0%, 100%": { opacity: "1" }, "50%": { opacity: "0.5" } },
+          },
+          animation: {
+            "fade-in-up": "fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both",
+            "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+          },
+        },
+      },
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer base {
       :root {
-        --text: #1d1d1f;
-        --text-dim: #6e6e73;
-        --text-faint: #86868b;
-        --blue: #0071e3;
-        --green: #34c759;
-        --red: #ff3b30;
-        --orange: #ff9500;
-        --bg: #ffffff;
-        --bg-subtle: #f5f5f7;
-        --border: #d1d1d6;
-        --border-light: #e8e8ed;
-        --border-faint: #f0f0f0;
+        --background: 40 20% 98%;
+        --foreground: 220 25% 10%;
+        --canvas: 36 25% 96%;
+        --surface: 0 0% 100%;
+        --card: 0 0% 100%;
+        --card-foreground: 220 25% 10%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 220 25% 10%;
+        --primary: 220 25% 10%;
+        --primary-foreground: 40 20% 98%;
+        --secondary: 36 20% 94%;
+        --secondary-foreground: 220 25% 10%;
+        --muted: 36 18% 93%;
+        --muted-foreground: 220 10% 45%;
+        --accent: 175 70% 45%;
+        --accent-foreground: 0 0% 100%;
+        --accent-soft: 175 70% 96%;
+        --accent-warm: 18 85% 58%;
+        --accent-warm-soft: 18 85% 96%;
+        --success: 145 55% 42%;
+        --success-soft: 145 50% 92%;
+        --warning: 35 90% 52%;
+        --warning-soft: 35 85% 94%;
+        --destructive: 0 75% 55%;
+        --destructive-foreground: 0 0% 100%;
+        --destructive-soft: 0 70% 96%;
+        --border: 36 15% 88%;
+        --border-strong: 36 12% 82%;
+        --input: 36 15% 88%;
+        --ring: 175 70% 45%;
+        --radius: 0.625rem;
+        --shadow-sm: 0 1px 2px 0 hsl(220 25% 10% / 0.04);
+        --shadow-md: 0 4px 12px -2px hsl(220 25% 10% / 0.06), 0 2px 4px -2px hsl(220 25% 10% / 0.04);
+        --shadow-lg: 0 12px 32px -8px hsl(220 25% 10% / 0.10), 0 4px 8px -4px hsl(220 25% 10% / 0.04);
+        --shadow-accent: 0 8px 24px -6px hsl(175 70% 45% / 0.25);
+        --shadow-warm: 0 8px 24px -6px hsl(18 85% 58% / 0.25);
+        --dot-pattern: radial-gradient(hsl(175 50% 70% / 0.4) 1px, transparent 1px);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: 220 25% 7%;
+          --foreground: 40 20% 96%;
+          --canvas: 220 25% 8%;
+          --surface: 220 22% 11%;
+          --card: 220 22% 11%;
+          --card-foreground: 40 20% 96%;
+          --popover: 220 22% 11%;
+          --popover-foreground: 40 20% 96%;
+          --primary: 40 20% 96%;
+          --primary-foreground: 220 25% 10%;
+          --secondary: 220 18% 16%;
+          --secondary-foreground: 40 20% 96%;
+          --muted: 220 18% 14%;
+          --muted-foreground: 220 10% 65%;
+          --accent: 175 80% 55%;
+          --accent-foreground: 220 25% 10%;
+          --accent-soft: 175 50% 18%;
+          --accent-warm: 18 90% 65%;
+          --accent-warm-soft: 18 50% 18%;
+          --border: 220 18% 18%;
+          --border-strong: 220 18% 24%;
+          --input: 220 18% 18%;
+          --ring: 175 80% 55%;
+        }
+      }
+      
+      .theme-minimal-femme {
+        --accent: 327 100% 71%;
+        --accent-soft: 327 100% 96%;
+        --accent-warm: 8 95% 67%;
+        --accent-warm-soft: 8 95% 96%;
+        --ring: 327 100% 71%;
+        --shadow-accent: 0 8px 24px -6px hsl(327 100% 71% / 0.25);
+        --dot-pattern: radial-gradient(hsl(327 100% 71% / 0.3) 1px, transparent 1px);
+      }
+      .dark .theme-minimal-femme, .theme-minimal-femme.dark {
+        --accent: 327 100% 75%;
+        --accent-soft: 327 50% 18%;
+        --accent-warm: 8 95% 70%;
+        --accent-warm-soft: 8 50% 18%;
+        --ring: 327 100% 75%;
       }
 
+      .theme-soft-era {
+        --accent: 342 64% 64%;
+        --accent-soft: 342 64% 96%;
+        --accent-warm: 248 64% 87%;
+        --accent-warm-soft: 248 64% 98%;
+        --ring: 342 64% 64%;
+        --shadow-accent: 0 8px 24px -6px hsl(342 64% 64% / 0.25);
+        --dot-pattern: radial-gradient(hsl(342 64% 64% / 0.3) 1px, transparent 1px);
+      }
+      .dark .theme-soft-era, .theme-soft-era.dark {
+        --accent: 342 64% 70%;
+        --accent-soft: 342 50% 18%;
+        --accent-warm: 248 64% 80%;
+        --accent-warm-soft: 248 50% 18%;
+        --ring: 342 64% 70%;
+      }
+
+      .theme-universe {
+        --accent: 222 80% 56%;
+        --accent-soft: 222 80% 96%;
+        --accent-warm: 331 91% 62%;
+        --accent-warm-soft: 331 91% 96%;
+        --ring: 222 80% 56%;
+        --shadow-accent: 0 8px 24px -6px hsl(222 80% 56% / 0.25);
+        --dot-pattern: radial-gradient(hsl(222 80% 56% / 0.3) 1px, transparent 1px);
+      }
+      .dark .theme-universe, .theme-universe.dark {
+        --accent: 222 80% 65%;
+        --accent-soft: 222 50% 18%;
+        --accent-warm: 331 91% 70%;
+        --accent-warm-soft: 331 50% 18%;
+        --ring: 222 80% 65%;
+      }
+
+      * {
+        @apply border-border;
+      }
       html {
-        scroll-behavior: smooth;
-      }
-
-      body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
-          Helvetica, Arial, sans-serif;
-        color: var(--text);
-        position: relative;
-        overflow-x: hidden;
-        background-color: var(--bg);
-        background-image:
-          radial-gradient(
-            circle at top center,
-            rgba(0, 113, 227, 0.18),
-            transparent 34%
-          ),
-          radial-gradient(
-            circle at 1px 1px,
-            rgba(29, 29, 31, 0.05) 0.9px,
-            transparent 1.2px
-          ),
-          radial-gradient(
-            circle at 18px 18px,
-            rgba(0, 113, 227, 0.045) 0.8px,
-            transparent 1px
-          ),
-          linear-gradient(180deg, #fafbfd 0%, #ffffff 24%, #f3f5fb 100%);
-        background-size:
-          auto,
-          22px 22px,
-          32px 32px,
-          auto;
         -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
         text-rendering: optimizeLegibility;
-        line-height: 1.5;
       }
-
-      body::before,
-      body::after {
-        content: "";
-        position: absolute;
-        pointer-events: none;
-        z-index: 0;
-        border-radius: 50%;
-        background-repeat: no-repeat;
-        background-position: center;
-        background-size: 100% 100%;
+      body {
+        @apply bg-canvas text-foreground;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
       }
-
-      body::before {
-        top: 28px;
-        left: clamp(-36px, 4vw, 20px);
-        width: 300px;
-        height: 300px;
-        opacity: 0.72;
-        background-image:
-          radial-gradient(circle, rgba(0, 113, 227, 0.12), transparent 72%),
-          radial-gradient(
-            circle,
-            transparent 0 84px,
-            rgba(0, 113, 227, 0.08) 84px 86px,
-            transparent 86px 128px,
-            rgba(0, 113, 227, 0.045) 128px 130px,
-            transparent 130px
-          ),
-          radial-gradient(
-            circle,
-            transparent 0 52px,
-            rgba(0, 113, 227, 0.03) 52px 53px,
-            transparent 53px
-          );
+      ::selection {
+        background: hsl(var(--accent) / 0.18);
+        color: hsl(var(--foreground));
       }
-
-      body::after {
-        top: 54px;
-        right: clamp(-52px, 3vw, 16px);
-        width: 340px;
-        height: 340px;
-        opacity: 0.64;
-        background-image:
-          radial-gradient(circle, rgba(29, 29, 31, 0.07), transparent 72%),
-          radial-gradient(
-            circle,
-            transparent 0 102px,
-            rgba(29, 29, 31, 0.055) 102px 104px,
-            transparent 104px 154px,
-            rgba(29, 29, 31, 0.03) 154px 156px,
-            transparent 156px
-          ),
-          radial-gradient(
-            circle,
-            transparent 0 64px,
-            rgba(0, 113, 227, 0.025) 64px 65px,
-            transparent 65px
-          );
-      }
-
-      body > * {
-        position: relative;
-        z-index: 1;
-      }
-
-      /* ---- Layout ---- */
-      .container {
-        max-width: 960px;
-        margin: 0 auto;
-        padding: 0 24px;
-      }
-
-      /* ---- Hero ---- */
-      .hero {
-        padding: 100px 0 60px;
-        text-align: center;
-      }
-      .hero h1 {
-        font-size: 2.75rem;
-        font-weight: 700;
+    }
+    @layer components {
+      .font-serif-display {
+        font-family: 'Instrument Serif', 'Times New Roman', serif;
+        font-weight: 400;
         letter-spacing: -0.02em;
-        line-height: 1.15;
       }
-      .hero h1 span {
-        color: var(--blue);
+      .font-mono {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
       }
-      .hero p {
-        max-width: 560px;
-        margin: 20px auto 0;
-        font-size: 1.125rem;
-        color: var(--text-dim);
-        line-height: 1.6;
+      .dotted-bg {
+        background-image: var(--dot-pattern);
+        background-size: 20px 20px;
+        background-position: -1px -1px;
       }
-      .hero-actions {
-        margin-top: 36px;
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-        flex-wrap: wrap;
+      .window-chrome {
+        @apply rounded-xl border border-border bg-surface;
+        box-shadow: var(--shadow-lg);
       }
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        border-radius: 8px;
-        padding: 10px 22px;
-        font-size: 0.9375rem;
-        font-weight: 500;
-        text-decoration: none;
-        transition:
-          background 120ms ease,
-          border-color 120ms ease;
-      }
-      .btn-primary {
-        background: var(--text);
-        color: #fff;
-        border: 1px solid var(--text);
-      }
-      .btn-primary:hover {
-        background: #3a3a3c;
-        border-color: #3a3a3c;
-      }
-      .btn-secondary {
-        background: var(--bg);
-        color: #3a3a3c;
-        border: 1px solid var(--border);
-      }
-      .btn-secondary:hover {
-        background: var(--bg-subtle);
-        color: var(--text);
-      }
-
-      /* ---- Why ---- */
-      .why {
-        padding: 60px 0;
-        border-top: 1px solid var(--border-light);
-      }
-      .why h2 {
-        font-size: 1.75rem;
-        font-weight: 600;
-        margin-bottom: 16px;
-      }
-      .why p {
-        max-width: 640px;
-        color: var(--text-dim);
-        font-size: 1rem;
-        line-height: 1.7;
-      }
-      .why a {
-        color: var(--blue);
-        text-decoration: none;
-      }
-      .why a:hover {
-        text-decoration: underline;
-      }
-
-      /* ---- Screens ---- */
-      .screens {
-        padding: 60px 0;
-        border-top: 1px solid var(--border-light);
-      }
-      .screens h2 {
-        font-size: 1.75rem;
-        font-weight: 600;
-        margin-bottom: 24px;
-      }
-
-      /* ---- Tab bar ---- */
-      .tab-bar {
-        display: flex;
-        gap: 4px;
-        margin-bottom: 24px;
-        border-bottom: 1px solid var(--border-light);
-        padding-bottom: 0;
-      }
-      .tab {
-        padding: 8px 16px;
-        border: none;
-        background: none;
-        font-family: inherit;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--text-dim);
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
-        border-radius: 0;
-        transition:
-          color 120ms ease,
-          border-color 120ms ease;
-      }
-      .tab:hover {
-        color: var(--text);
-      }
-      .tab.active {
-        color: var(--text);
-        border-bottom-color: var(--text);
-      }
-
-      .tab-panel {
-        display: none;
-      }
-      .tab-panel.active {
-        display: block;
-      }
-
-      .screen-section {
-        margin-bottom: 0;
-      }
-      .screen-desc {
-        font-size: 0.9375rem;
-        color: var(--text-dim);
-        margin-bottom: 20px;
-        max-width: 560px;
-      }
-
-      /* Chrome window frame */
-      .window {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        overflow: hidden;
-        background: var(--bg);
-        box-shadow:
-          0 4px 24px rgba(0, 0, 0, 0.06),
-          0 1px 4px rgba(0, 0, 0, 0.04);
-      }
-      .window-bar {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 14px;
-        background: var(--bg-subtle);
-        border-bottom: 1px solid var(--border-light);
+      .window-titlebar {
+        @apply flex items-center gap-1.5 border-b border-border/70 px-4 py-3;
       }
       .window-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-      }
-      .window-dot.red {
-        background: #ff5f57;
-      }
-      .window-dot.yellow {
-        background: #febc2e;
-      }
-      .window-dot.green {
-        background: #28c840;
-      }
-      .window-content {
-        padding: 0;
-        background: var(--bg);
-      }
-
-      /* ---- App chrome inside window ---- */
-      .app-header {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        padding: 10px 20px;
-        border-bottom: 1px solid var(--border);
-        font-size: 0.8125rem;
-      }
-      .app-logo {
-        font-weight: 600;
-        color: var(--text);
-      }
-      .app-nav {
-        display: flex;
-        gap: 4px;
-      }
-      .app-nav-item {
-        padding: 4px 10px;
-        border-radius: 6px;
-        color: var(--text-dim);
-        font-size: 0.8125rem;
-      }
-      .app-nav-item.active {
-        background: var(--bg-subtle);
-        color: var(--text);
-        font-weight: 500;
-      }
-      .app-body {
-        padding: 24px 20px;
-      }
-
-      /* ---- Dashboard screen ---- */
-      .stat-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        overflow: hidden;
-        background: var(--border);
-        margin-bottom: 24px;
-      }
-      .stat-card {
-        background: var(--bg);
-        padding: 14px 16px;
-      }
-      .stat-value {
-        font-size: 1.5rem;
-        font-weight: 600;
-      }
-      .stat-value.blue {
-        color: var(--blue);
-      }
-      .stat-value.red {
-        color: var(--red);
-      }
-      .stat-label {
-        font-size: 0.6875rem;
-        color: var(--text-dim);
-        margin-top: 2px;
-      }
-
-      .runs-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-      .runs-header h3 {
-        font-size: 0.8125rem;
-        font-weight: 600;
-      }
-      .runs-header a {
-        font-size: 0.75rem;
-        color: var(--blue);
-        text-decoration: none;
-      }
-      .runs-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.8125rem;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      .runs-table thead {
-        background: var(--bg-subtle);
-      }
-      .runs-table th {
-        text-align: left;
-        padding: 8px 12px;
-        font-size: 0.6875rem;
-        font-weight: 500;
-        color: var(--text-dim);
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        border-bottom: 1px solid var(--border);
-      }
-      .runs-table td {
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--border-faint);
-      }
-      .runs-table tr:last-child td {
-        border-bottom: none;
-      }
-      .status {
-        font-weight: 500;
-      }
-      .status.success {
-        color: var(--green);
-      }
-      .status.running {
-        color: var(--blue);
-      }
-      .status.failed {
-        color: var(--red);
-      }
-      .status.pending {
-        color: var(--text-dim);
-      }
-
-      /* ---- Routine form screen ---- */
-      .form-group {
-        margin-bottom: 16px;
-      }
-      .form-label {
-        display: block;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        margin-bottom: 4px;
-        color: var(--text);
-      }
-      .form-label-hint {
-        font-weight: 400;
-        color: var(--text-dim);
-      }
-      .form-input,
-      .form-textarea,
-      .form-select {
-        width: 100%;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 7px 10px;
-        font-size: 0.8125rem;
-        font-family: inherit;
-        color: var(--text);
-        background: var(--bg);
-      }
-      .form-textarea {
-        resize: none;
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-      }
-      .form-input:focus,
-      .form-textarea:focus,
-      .form-select:focus {
-        outline: none;
-        border-color: var(--blue);
-        box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
-      }
-      .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-      }
-      .form-radio-group {
-        display: flex;
-        gap: 16px;
-        font-size: 0.8125rem;
-      }
-      .form-radio-group label {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        cursor: pointer;
-      }
-      .pill-group {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
+        @apply h-3 w-3 rounded-full;
       }
       .pill {
-        padding: 4px 12px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        font-size: 0.8125rem;
-        font-weight: 500;
-        background: var(--bg);
-        color: var(--text);
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
       }
-      .pill.active {
-        background: var(--text);
-        color: #fff;
-        border-color: var(--text);
+      .kbd {
+        @apply inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground;
       }
-      .form-hint {
-        font-size: 0.75rem;
-        color: var(--text-dim);
-        margin-top: 4px;
-      }
-      .form-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 20px;
-      }
-      .form-btn {
-        padding: 7px 16px;
-        border-radius: 6px;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        border: 1px solid;
-        cursor: default;
-      }
-      .form-btn-primary {
-        background: var(--text);
-        color: #fff;
-        border-color: var(--text);
-      }
-      .form-btn-secondary {
-        background: var(--bg);
-        color: #3a3a3c;
-        border-color: var(--border);
-      }
+    }
+  </style>
+</head>
+<body class="overflow-x-hidden">
+  <div class="relative min-h-screen bg-canvas dotted-bg">
+    <!-- Glowing ambient orbs -->
+    <!-- Top section orbs -->
+    <div class="absolute top-[-5%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-accent/20 blur-[120px] pointer-events-none mix-blend-multiply dark:mix-blend-screen animate-pulse-soft"></div>
+    <div class="absolute top-[15%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-accent-warm/20 blur-[100px] pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
+    <!-- Middle section orbs -->
+    <div class="absolute top-[45%] left-[5%] w-[45vw] h-[45vw] rounded-full bg-secondary/80 blur-[130px] pointer-events-none mix-blend-multiply dark:mix-blend-screen animate-pulse-soft" style="animation-delay: 1s"></div>
+    <div class="absolute top-[65%] right-[-5%] w-[55vw] h-[55vw] rounded-full bg-accent/15 blur-[140px] pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
+    <!-- Bottom section orbs -->
+    <div class="absolute bottom-[5%] left-[20%] w-[60vw] h-[60vw] rounded-full bg-accent-warm/15 blur-[150px] pointer-events-none mix-blend-multiply dark:mix-blend-screen animate-pulse-soft" style="animation-delay: 2s"></div>
 
-      /* ---- Run detail / chat screen ---- */
-      .chat-header {
-        margin-bottom: 20px;
-      }
-      .chat-back {
-        font-size: 0.75rem;
-        color: var(--blue);
-        text-decoration: none;
-      }
-      .chat-title {
-        font-size: 1.0625rem;
-        font-weight: 600;
-        margin-top: 6px;
-      }
-      .chat-meta {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.75rem;
-        color: var(--text-dim);
-        margin-top: 4px;
-      }
-      .chat-meta .dot {
-        color: var(--border);
-      }
+    <div class="relative z-10">
+  
 
-      .chat-thread {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
+    <!-- Hero -->
+    <section class="container pb-16 pt-20 text-center md:pt-28">
+      <!-- <div class="mx-auto inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[12px] text-muted-foreground shadow-sm">
+        <span class="h-1.5 w-1.5 rounded-full bg-accent-warm animate-pulse-soft"></span>
+        <span class="text-accent-warm font-medium">New</span> — Filesystem triggers in beta
+      </div> -->
+      <h1 class="mt-6 text-balance text-[44px] font-semibold leading-[1.05] tracking-tight md:text-[68px]">
+        Routines that run<br />
+        <span class="font-serif-display italic text-accent">when something happens.</span>
+      </h1>
+      <p class="mx-auto mt-5 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground md:text-[17px]">
+        Define a prompt, pick a model, attach a trigger. Opencode runs your routine on cron,
+        on filesystem changes, or anywhere code lives.
+      </p>
+      <div class="mt-8 flex items-center justify-center gap-3">
+        <a class="rounded-lg bg-accent px-5 py-2.5 text-[14px] font-medium text-white shadow-accent transition-transform hover:-translate-y-px hover:shadow-lg">
+          Create your first routine
+        </a>
+        <a class="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-[14px] font-medium shadow-sm">
+          <span class="font-mono text-[12px] text-accent">$</span> npm i -g opencode
+        </a>
+      </div>
+      <div class="mt-3 text-[12px] text-muted-foreground">
+        Free for solo use · <span class="kbd">⌘</span> <span class="kbd">K</span> to start anywhere
+      </div>
+    </section>
 
-      .user-bubble {
-        align-self: flex-end;
-        max-width: 75%;
-        background: var(--blue);
-        color: #fff;
-        padding: 10px 14px;
-        border-radius: 16px 16px 4px 16px;
-        font-size: 0.8125rem;
-        line-height: 1.5;
-        white-space: pre-wrap;
-        box-shadow: 0 1px 3px rgba(0, 113, 227, 0.15);
-      }
+    <!-- Hero preview -->
+    <section id="preview" class="container pb-24">
+      <div class="relative mx-auto max-w-5xl animate-fade-in-up">
+        <div class="absolute inset-x-0 -top-6 mx-auto h-12 max-w-2xl rounded-full bg-gradient-to-r from-accent/20 via-accent-warm/20 to-accent/20 blur-2xl"></div>
+        
+  <div class="window-chrome overflow-hidden ">
+    <div class="window-titlebar bg-canvas/60">
+      <span class="window-dot bg-[hsl(0_75%_65%)]"></span>
+      <span class="window-dot bg-[hsl(40_90%_60%)]"></span>
+      <span class="window-dot bg-[hsl(140_55%_55%)]"></span>
+      
+    </div>
+    <div>
+    
+  <div class="flex items-center gap-8 border-b border-border/70 px-6 py-4">
+    <div class="flex items-center gap-2">
+      <div class="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-accent to-accent-warm text-white">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+        </svg>
+      </div>
+      <span class="text-[15px] font-semibold tracking-tight">Opencode Routines</span>
+    </div>
+    <nav class="flex items-center gap-1">
+      <button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors bg-accent/15 text-accent">Routines</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Runs</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Settings</button>
 
-      .agent-response {
-        max-width: 85%;
-        font-size: 0.8125rem;
-        line-height: 1.6;
-        color: var(--text);
-      }
-      .agent-response p {
-        margin-bottom: 8px;
-      }
-      .agent-response p:last-child {
-        margin-bottom: 0;
-      }
-      .agent-response code {
-        background: var(--border-light);
-        padding: 1px 5px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-      }
-      .agent-response pre {
-        background: var(--bg-subtle);
-        border: 1px solid var(--border-light);
-        border-radius: 8px;
-        padding: 10px 12px;
-        font-size: 0.75rem;
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-        overflow-x: auto;
-        margin: 8px 0;
-        line-height: 1.5;
-      }
+    </nav>
+  </div>
 
-      .tool-row {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        padding: 3px 8px;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        color: var(--text-dim);
-        margin: 2px 0;
-      }
-      .tool-row .arrow {
-        font-size: 0.625rem;
-      }
-      .tool-name {
-        font-weight: 500;
-        color: #3a3a3c;
-      }
+    <div class="px-8 py-7">
+      <div class="flex items-end justify-between">
+        <div>
+          <h2 class="text-[22px] font-semibold tracking-tight">Routines</h2>
+          <p class="mt-0.5 text-[12px] text-muted-foreground">42 total runs · 7 routines</p>
+        </div>
+        <button class="rounded-lg bg-accent px-3.5 py-2 text-[13px] font-medium text-white shadow-sm transition-transform hover:-translate-y-px">
+          + New Routine
+        </button>
+      </div>
 
-      .reply-bar {
-        display: flex;
-        align-items: flex-end;
-        gap: 8px;
-        border-top: 1px solid var(--border-light);
-        padding-top: 12px;
-        margin-top: 16px;
-      }
-      .reply-input {
-        flex: 1;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 8px 10px;
-        font-size: 0.8125rem;
-        font-family: inherit;
-        color: var(--text-faint);
-        resize: none;
-        background: var(--bg);
-      }
-      .reply-btn {
-        padding: 8px 14px;
-        border-radius: 6px;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        background: var(--text);
-        color: #fff;
-        border: 1px solid var(--text);
-        cursor: default;
-        opacity: 0.4;
-      }
+      <div class="mt-5 flex items-center gap-2">
+        <button class="rounded-full bg-accent/15 px-3 py-1 text-[12px] font-medium text-accent">All</button>
+        <button class="rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground">Running</button>
+        <button class="rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground">Success</button>
+        <button class="rounded-full px-3 py-1 text-[12px] font-medium text-muted-foreground">Failed</button>
+      </div>
 
-      /* ---- Quick start ---- */
-      .quickstart {
-        padding: 60px 0;
-        border-top: 1px solid var(--border-light);
-      }
-      .quickstart h2 {
-        font-size: 1.75rem;
-        font-weight: 600;
-        margin-bottom: 16px;
-      }
-      .quickstart pre {
-        background: var(--text);
-        color: #e0e0e0;
-        padding: 16px 20px;
-        border-radius: 10px;
-        font-size: 0.875rem;
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-        overflow-x: auto;
-        line-height: 1.6;
-      }
-      .quickstart pre .comment {
-        color: #8e8e93;
-      }
-      .quickstart p {
-        margin-top: 12px;
-        font-size: 0.9375rem;
-        color: var(--text-dim);
-      }
+      <div class="mt-4 overflow-hidden rounded-xl border border-border/70 bg-canvas/40">
+        <div class="grid grid-cols-[1.8fr_1fr_1fr_1fr_0.7fr_auto] bg-canvas/60 border-b border-border/70 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div>Routine</div><div>Trigger</div><div>Status</div><div>Duration</div><div>Started</div><div></div>
+        </div>
+        <div class="grid grid-cols-[1.8fr_1fr_1fr_1fr_0.7fr_auto] items-center px-4 py-3 text-[13px]">
+          <div>
+            <div class="font-medium">PR review summary</div>
+            <div class="mt-0.5 text-[11px] text-muted-foreground font-mono">run #42</div>
+          </div>
+          <div class="font-mono text-[12px] text-muted-foreground">cron</div>
+          <div class="font-medium text-accent flex items-center gap-1.5">
+            <span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse-soft"></span>running
+          </div>
+          <div class="font-mono text-[12px] text-muted-foreground">—</div>
+          <div class="text-muted-foreground text-[12px]">just now</div>
+          <div class="pl-3 text-muted-foreground">›</div>
+        </div>
+        <div class="grid grid-cols-[1.8fr_1fr_1fr_1fr_0.7fr_auto] items-center px-4 py-3 text-[13px] border-t border-border/70">
+          <div>
+            <div class="font-medium">Docs drift check</div>
+            <div class="mt-0.5 text-[11px] text-muted-foreground font-mono">run #41</div>
+          </div>
+          <div class="font-mono text-[12px] text-muted-foreground">filesystem</div>
+          <div class="font-medium text-success flex items-center gap-1.5">
+            <span class="h-1.5 w-1.5 rounded-full bg-success"></span>success
+          </div>
+          <div class="font-mono text-[12px] text-muted-foreground">0m 48s</div>
+          <div class="text-muted-foreground text-[12px]">23m ago</div>
+          <div class="pl-3 text-muted-foreground">›</div>
+        </div>
+        <div class="grid grid-cols-[1.8fr_1fr_1fr_1fr_0.7fr_auto] items-center px-4 py-3 text-[13px] border-t border-border/70">
+          <div>
+            <div class="font-medium">Nightly test runner</div>
+            <div class="mt-0.5 text-[11px] text-muted-foreground font-mono">run #40</div>
+          </div>
+          <div class="font-mono text-[12px] text-muted-foreground">cron</div>
+          <div class="font-medium text-destructive flex items-center gap-1.5">
+            <span class="h-1.5 w-1.5 rounded-full bg-destructive"></span>failed
+          </div>
+          <div class="font-mono text-[12px] text-muted-foreground">3m 12s</div>
+          <div class="text-muted-foreground text-[12px]">6h ago</div>
+          <div class="pl-3 text-muted-foreground">›</div>
+        </div>
+      </div>
 
-      /* ---- Coming soon ---- */
-      .coming-soon {
-        padding: 60px 0;
-        border-top: 1px solid var(--border-light);
-      }
-      .coming-soon h2 {
-        font-size: 1.75rem;
-        font-weight: 600;
-        margin-bottom: 20px;
-      }
-      .roadmap-list {
-        list-style: none;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px 24px;
-      }
-      .roadmap-list li {
-        font-size: 0.9375rem;
-        color: var(--text-dim);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .roadmap-list li::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--border);
-        flex-shrink: 0;
-      }
+      <div class="mt-3 flex items-center justify-between text-[12px] text-muted-foreground">
+        <span>Showing 1–3 of 42 runs</span>
+        <div class="flex items-center gap-1">
+          <button class="rounded-md border border-border/70 px-2.5 py-1 opacity-40">← Prev</button>
+          <button class="rounded-md border border-accent/40 bg-accent/10 px-2.5 py-1 text-accent">1</button>
+          <button class="rounded-md border border-border/70 px-2.5 py-1">2</button>
+          <button class="rounded-md border border-border/70 px-2.5 py-1">Next →</button>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
 
-      /* ---- Use case section ---- */
-      .usecase {
-        padding: 60px 0;
-        border-top: 1px solid var(--border-light);
-      }
-      .usecase-heading {
-        font-size: 2rem;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        margin-bottom: 28px;
-        color: var(--text);
-      }
-      .rotating-noun {
-        display: inline-block;
-        color: var(--blue);
-        overflow: hidden;
-        vertical-align: bottom;
-        /* width locked by JS to widest noun — no resize during switch */
-      }
-      .noun-text {
-        display: inline-block;
-        white-space: nowrap;
-        transition:
-          opacity 0.25s ease,
-          transform 0.25s ease;
-      }
-      /* Single unified pane */
-      .usecase-pane {
-        display: grid;
-        grid-template-columns: 1fr 1.15fr 1fr;
-      }
-      .usecase-col {
-        padding: 18px 18px 20px;
-        min-height: 230px;
-      }
-      .usecase-col.before {
-        border-right: 1px solid var(--border-faint);
-      }
-      .usecase-col.routine {
-        background: var(--bg-subtle);
-        border-right: 1px solid var(--border-faint);
-      }
-      .usecase-col-label {
-        font-size: 0.6rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--text-faint);
-        margin-bottom: 14px;
-      }
-      /* File browser */
-      .file-path {
-        font-size: 0.6875rem;
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-        color: var(--text-dim);
-        background: var(--bg-subtle);
-        border: 1px solid var(--border-faint);
-        padding: 4px 8px;
-        border-radius: 4px;
-        margin-bottom: 10px;
-      }
-      .usecase-col.routine .file-path {
-        background: var(--bg);
-      }
-      .file-entry {
-        display: flex;
-        align-items: flex-start;
-        gap: 7px;
-        padding: 5px 2px;
-        border-top: 1px solid var(--border-faint);
-      }
-      .file-entry:first-of-type {
-        border-top: none;
-      }
-      .file-icon {
-        font-size: 0.8125rem;
-        flex-shrink: 0;
-        margin-top: 1px;
-      }
-      .file-name {
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-        font-size: 0.6875rem;
-        line-height: 1.45;
-        word-break: break-all;
-      }
-      .file-name.messy {
-        color: var(--text-dim);
-      }
-      .file-name.clean {
-        color: var(--text);
-        font-weight: 500;
-      }
-      .file-name.meta {
-        color: var(--text-faint);
-      }
-      .file-new-badge {
-        margin-left: auto;
-        flex-shrink: 0;
-        font-size: 0.6rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #1a7f37;
-        background: #d1f5d3;
-        border-radius: 999px;
-        padding: 1px 6px;
-      }
-      /* Routine col */
-      .usecase-field-label {
-        font-size: 0.6rem;
-        font-weight: 700;
-        color: var(--text-faint);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-bottom: 5px;
-      }
-      .usecase-trigger-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        font-size: 0.6875rem;
-        font-weight: 500;
-        color: var(--text);
-      }
-      .usecase-prompt {
-        font-size: 0.75rem;
-        line-height: 1.65;
-        color: var(--text-dim);
-        background: var(--bg);
-        border: 1px solid var(--border-light);
-        border-radius: 6px;
-        padding: 8px 10px;
-      }
-      .usecase-prompt code {
-        background: var(--border-light);
-        padding: 1px 4px;
-        border-radius: 3px;
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-        font-size: 0.7rem;
-        color: var(--text);
-      }
-      /* File tree */
-      .file-folder {
-        font-size: 0.6875rem;
-        font-family: "SF Mono", "Fira Code", Menlo, monospace;
-        color: var(--text-dim);
-        font-weight: 600;
-        padding: 6px 2px 3px;
-        border-top: 1px solid var(--border-faint);
-        margin-top: 2px;
-      }
-      .file-folder:first-of-type {
-        border-top: none;
-        margin-top: 0;
-      }
-      .file-entry.indented {
-        padding-left: 14px;
-      }
-      /* Multiple trigger rows */
-      .trigger-row {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 5px;
-      }
-      .trigger-row:last-child {
-        margin-bottom: 0;
-      }
-      /* Tab progress animation for usecase tabs */
-      .usecase-tab-bar {
-        margin-bottom: 16px;
-      }
-      .usecase-tab-bar .tab {
-        position: relative;
-      }
-      .usecase-tab-bar .tab.active {
-        border-bottom-color: transparent;
-      }
-      .usecase-tab-bar .tab.active::after {
-        content: "";
-        position: absolute;
-        bottom: -1px;
-        left: 0;
-        height: 2px;
-        background: var(--text);
-        animation: ucProgress 5s linear forwards;
-      }
-      .usecase-tab-bar.paused .tab.active {
-        border-bottom-color: var(--text);
-      }
-      .usecase-tab-bar.paused .tab.active::after {
-        display: none;
-      }
-      @keyframes ucProgress {
-        from {
-          width: 0%;
-        }
-        to {
-          width: 100%;
-        }
-      }
+      </div>
+    </section>
 
-      /* ---- Footer ---- */
-      footer {
-        padding: 40px 0;
-        border-top: 1px solid var(--border-light);
-        text-align: center;
-        font-size: 0.8125rem;
-        color: var(--text-dim);
-      }
-      footer a {
-        color: var(--blue);
-        text-decoration: none;
-      }
-      footer a:hover {
-        text-decoration: underline;
-      }
+    <!-- Triggers -->
+    <section id="triggers" class="border-y border-border/70 bg-surface/40">
+      <div class="container py-20">
+        <div class="grid items-center gap-12 md:grid-cols-2">
+          <div>
+            <div class="text-[12px] font-medium uppercase tracking-wider text-accent">Triggers</div>
+            <h2 class="mt-3 text-balance text-[34px] font-semibold leading-tight tracking-tight md:text-[44px]">
+              Two kinds of <span class="font-serif-display italic text-accent-warm">when</span>.
+            </h2>
+            <p class="mt-4 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+              Schedule routines on a cron, or watch a directory and react to file changes —
+              pull requests, log files, screenshots, anything.
+            </p>
+            <div class="mt-7 space-y-3 text-[13px]">
+              
+  <div class="rounded-lg border border-border bg-surface p-4 shadow-sm">
+    <div class="flex items-center gap-2">
+      <span class="pill font-mono bg-accent-soft text-accent">cron</span>
+      <span class="text-[14px] font-medium">On a schedule</span>
+    </div>
+    <div class="mt-2 rounded-md bg-canvas px-3 py-2 font-mono text-[11.5px] text-muted-foreground">
+      0 9 * * 1-5  →  weekday standup digest
+    </div>
+  </div>
+    
+              
+  <div class="rounded-lg border border-border bg-surface p-4 shadow-sm">
+    <div class="flex items-center gap-2">
+      <span class="pill font-mono bg-accent-warm-soft text-accent-warm">filesystem</span>
+      <span class="text-[14px] font-medium">On a file event</span>
+    </div>
+    <div class="mt-2 rounded-md bg-canvas px-3 py-2 font-mono text-[11.5px] text-muted-foreground">
+      watch ~/screenshots  →  auto-OCR & file
+    </div>
+  </div>
+    
+            </div>
+          </div>
+          <div>
+            
+  <div class="window-chrome overflow-hidden ">
+    <div class="window-titlebar bg-canvas/60">
+      <span class="window-dot bg-[hsl(0_75%_65%)]"></span>
+      <span class="window-dot bg-[hsl(40_90%_60%)]"></span>
+      <span class="window-dot bg-[hsl(140_55%_55%)]"></span>
+      
+    </div>
+    <div>
+    
+  <div class="flex items-center gap-8 border-b border-border/70 px-6 py-4">
+    <div class="flex items-center gap-2">
+      <div class="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-accent to-accent-warm text-white">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+        </svg>
+      </div>
+      <span class="text-[15px] font-semibold tracking-tight">Opencode Routines</span>
+    </div>
+    <nav class="flex items-center gap-1">
+      <button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors bg-accent/15 text-accent">Routines</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Runs</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Settings</button>
 
-      /* ---- Responsive ---- */
-      @media (max-width: 640px) {
-        body::before {
-          top: 20px;
-          left: -64px;
-          width: 220px;
-          height: 220px;
-          opacity: 0.62;
-        }
-        body::after {
-          top: 56px;
-          right: -92px;
-          width: 250px;
-          height: 250px;
-          opacity: 0.52;
-        }
-        .hero {
-          padding: 60px 0 40px;
-        }
-        .hero h1 {
-          font-size: 2rem;
-        }
-        .hero p {
-          font-size: 1rem;
-        }
-        .stat-grid {
-          grid-template-columns: 1fr;
-        }
-        .form-row {
-          grid-template-columns: 1fr;
-        }
-        .roadmap-list {
-          grid-template-columns: 1fr;
-        }
-        .runs-table {
-          font-size: 0.75rem;
-        }
-        .runs-table th,
-        .runs-table td {
-          padding: 6px 8px;
-        }
-        .usecase-pane {
-          grid-template-columns: 1fr;
-        }
-        .usecase-col.before,
-        .usecase-col.routine {
-          border-right: none;
-          border-bottom: 1px solid var(--border-faint);
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <!-- ========== Hero ========== -->
-    <section class="hero">
-      <div class="container">
-        <h1>Agent routines,<br /><span>fully under your control.</span></h1>
-        <p>
-          A self-hosted, open-source alternative to Claude Code routines. Run
-          any agent, any model, as often as you want &mdash; on your own
-          infrastructure.
-        </p>
-        <div class="hero-actions">
-          <a
-            href="https://github.com/tessellate-digital/opencode-routines"
-            class="btn btn-primary"
-            >View on GitHub</a
-          >
-          <a href="#quickstart" class="btn btn-secondary">Quick Start</a>
+    </nav>
+  </div>
+
+    <div class="px-8 py-7">
+      <a class="text-[12px] font-medium text-accent">← Routines</a>
+      <h2 class="mt-2 text-[22px] font-semibold tracking-tight">New Routine</h2>
+
+      <div class="mt-6 space-y-5">
+        
+        <div>
+          <div class="mb-1.5 text-[12px] font-medium text-muted-foreground">Name</div>
+          <input value="PR review summary" class="w-full rounded-lg border border-border bg-canvas/40 px-3.5 py-2.5 text-[13px] outline-none focus:border-accent" />
+        </div>
+        
+
+        
+        <div>
+          <div class="mb-1.5 text-[12px] font-medium text-muted-foreground">Prompt</div>
+          <textarea rows="3" class="w-full resize-none rounded-lg border border-border bg-canvas/40 px-3.5 py-2.5 font-mono text-[12px] leading-relaxed outline-none focus:border-accent">Review all open PRs. For each one, summarise the changes,\nflag issues, and suggest reviewers based on code ownership.</textarea>
+        </div>
+        
+
+        
+        <div>
+          <div class="mb-1.5 text-[12px] font-medium text-muted-foreground">Model</div>
+          <div class="flex items-center justify-between rounded-lg border border-border bg-canvas/40 px-3.5 py-2.5 text-[13px]"><span class="font-mono text-[12px]">anthropic/claude-sonnet-4-6</span><span class="text-muted-foreground">▾</span></div>
+        </div>
+        
+
+        
+        <div>
+          <div class="mb-1.5 text-[12px] font-medium text-muted-foreground">Triggers</div>
+          
+          <div class="space-y-2">
+            
+        <div class="flex items-center justify-between rounded-lg border border-border bg-canvas/40 px-3.5 py-2.5 text-[13px]">
+          <div class="flex items-center gap-2">
+            <span class="text-muted-foreground">›</span>
+            <span class="font-medium">Cron</span>
+            <span class="font-mono text-[12px] text-muted-foreground">daily at 09:00</span>
+          </div>
+          <button class="text-[12px] font-medium text-destructive">Remove</button>
+        </div>
+        
+            
+        <div class="flex items-center justify-between rounded-lg border border-border bg-canvas/40 px-3.5 py-2.5 text-[13px]">
+          <div class="flex items-center gap-2">
+            <span class="text-muted-foreground">›</span>
+            <span class="font-medium">Filesystem</span>
+            <span class="font-mono text-[12px] text-muted-foreground">~/projects</span>
+          </div>
+          <button class="text-[12px] font-medium text-destructive">Remove</button>
+        </div>
+        
+            <button class="text-[12px] font-medium text-accent">+ Add another trigger</button>
+          </div>
+        
+        </div>
+        
+
+        <div class="flex gap-2 pt-2">
+          <button class="rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-sm">
+            Save routine
+          </button>
+          <button class="rounded-lg border border-border px-4 py-2 text-[13px] font-medium">Cancel</button>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ========== Use case ========== -->
-    <section class="usecase">
-      <div class="container">
-        <h2 class="usecase-heading">
-          opencode-routines is a
-          <span class="rotating-noun"
-            ><span class="noun-text">movie organiser</span></span
-          >
+    <!-- Features -->
+    <section id="features" class="container py-24">
+      <div class="mx-auto max-w-2xl text-center">
+        <div class="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">What you get</div>
+        <h2 class="mt-3 text-balance text-[34px] font-semibold leading-tight tracking-tight md:text-[44px]">
+          Boring infrastructure for<br />
+          <span class="font-serif-display italic">interesting work.</span>
         </h2>
+      </div>
 
-        <div class="tab-bar usecase-tab-bar" style="display: none">
-          <button class="tab active" data-uc-tab="0">Movie organiser</button>
-          <button class="tab" data-uc-tab="1">Docs updater</button>
-          <button class="tab" data-uc-tab="2">Screenshot renamer</button>
-          <button class="tab" data-uc-tab="3">Receipt tracker</button>
-          <button class="tab" data-uc-tab="4">Notes indexer</button>
-          <button class="tab" data-uc-tab="5">Changelog writer</button>
-          <button class="tab" data-uc-tab="6">Contract parser</button>
+      <div class="mx-auto mt-12 grid max-w-5xl gap-4 md:grid-cols-3">
+        
+  <div class="rounded-xl border border-border bg-surface p-6 shadow-sm transition-shadow hover:shadow-md">
+    <div class="font-mono text-[11px] text-muted-foreground">01</div>
+    <h3 class="mt-3 text-[16px] font-semibold tracking-tight">Bring your own model</h3>
+    <p class="mt-2 text-[13px] leading-relaxed text-muted-foreground">Anthropic, OpenAI, or anything OpenAI-compatible. Pick a default, or per-routine.</p>
+  </div>
+    
+        
+  <div class="rounded-xl border border-border bg-surface p-6 shadow-sm transition-shadow hover:shadow-md">
+    <div class="font-mono text-[11px] text-muted-foreground">02</div>
+    <h3 class="mt-3 text-[16px] font-semibold tracking-tight">Inspect every run</h3>
+    <p class="mt-2 text-[13px] leading-relaxed text-muted-foreground">Streamed output, tool calls, cost, and a follow-up prompt — all in one timeline.</p>
+  </div>
+    
+        
+  <div class="rounded-xl border border-border bg-surface p-6 shadow-sm transition-shadow hover:shadow-md">
+    <div class="font-mono text-[11px] text-muted-foreground">03</div>
+    <h3 class="mt-3 text-[16px] font-semibold tracking-tight">Run it anywhere</h3>
+    <p class="mt-2 text-[13px] leading-relaxed text-muted-foreground">Local CLI, your laptop, or a tiny VPS. State stored as plain files. No vendor lock-in.</p>
+  </div>
+    
+      </div>
+    </section>
+
+    <!-- Run preview -->
+    <section class="border-t border-border/70 bg-surface/40">
+      <div class="container py-24">
+        <div class="grid items-start gap-12 md:grid-cols-[1fr_1.2fr]">
+          <div class="md:sticky md:top-20">
+            <div class="text-[12px] font-medium uppercase tracking-wider text-accent">Anatomy of a run</div>
+            <h2 class="mt-3 text-balance text-[34px] font-semibold leading-tight tracking-tight md:text-[40px]">
+              Every run is a <span class="font-serif-display italic text-accent-warm">conversation</span> you can return to.
+            </h2>
+            <p class="mt-4 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+              See the prompt, the tools the model used, and the result. Reply with a follow-up
+              and the routine picks up right where it left off.
+            </p>
+            <div class="mt-6 space-y-2 text-[13px] text-muted-foreground">
+              
+  <div class="flex items-start gap-2">
+    <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-foreground/40"></span>
+    <span>Streaming output, no spinners.</span>
+  </div>
+    
+              
+  <div class="flex items-start gap-2">
+    <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-foreground/40"></span>
+    <span>Replayable from any step.</span>
+  </div>
+    
+              
+  <div class="flex items-start gap-2">
+    <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-foreground/40"></span>
+    <span>Exportable as JSON or Markdown.</span>
+  </div>
+    
+            </div>
+          </div>
+          <div>
+            
+  <div class="window-chrome overflow-hidden ">
+    <div class="window-titlebar bg-canvas/60">
+      <span class="window-dot bg-[hsl(0_75%_65%)]"></span>
+      <span class="window-dot bg-[hsl(40_90%_60%)]"></span>
+      <span class="window-dot bg-[hsl(140_55%_55%)]"></span>
+      
+    </div>
+    <div>
+    
+  <div class="flex items-center gap-8 border-b border-border/70 px-6 py-4">
+    <div class="flex items-center gap-2">
+      <div class="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-accent to-accent-warm text-white">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+        </svg>
+      </div>
+      <span class="text-[15px] font-semibold tracking-tight">Opencode Routines</span>
+    </div>
+    <nav class="flex items-center gap-1">
+      <button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Routines</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors bg-accent/15 text-accent">Runs</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Settings</button>
+
+    </nav>
+  </div>
+
+    <div class="px-8 py-7">
+      <a class="text-[12px] font-medium text-accent">← Runs</a>
+      <h2 class="mt-2 text-[22px] font-semibold tracking-tight">PR review summary</h2>
+      <div class="mt-1.5 flex items-center gap-2 text-[12px] text-muted-foreground">
+        <span class="pill bg-success-soft text-success">
+          <span class="h-1.5 w-1.5 rounded-full bg-success"></span> success
+        </span>
+        <span>·</span><span class="font-mono">Cron</span>
+        <span>·</span><span class="font-mono">1m 32s</span>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <div class="max-w-[78%] rounded-2xl rounded-tr-sm bg-accent px-4 py-3 text-[13px] leading-relaxed text-accent-foreground shadow-md">
+          Review all open PRs in the main branch. For each PR:
+          <ol class="mt-2 list-decimal space-y-0.5 pl-5">
+            <li>Summarize the changes</li>
+            <li>Flag any potential issues</li>
+            <li>Suggest reviewers based on code ownership</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="relative mt-6 overflow-hidden rounded-2xl border border-accent/20 bg-surface/90 p-5">
+        <div class="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-accent/20 blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-accent-warm/15 blur-3xl pointer-events-none"></div>
+
+        <div class="relative space-y-1 font-mono text-[12px] text-muted-foreground">
+          <div>› Ran <span class="rounded bg-accent/10 px-1 text-foreground">bash</span></div>
+          <div>› Ran <span class="rounded bg-accent/10 px-1 text-foreground">bash</span></div>
         </div>
 
-        <!-- Panel 0: Movie organiser -->
-        <div class="tab-panel active" data-uc-panel="0">
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-              <span
-                style="
-                  margin-left: 10px;
-                  font-size: 0.75rem;
-                  color: var(--text-dim);
-                "
-                >Movie organiser &mdash; Filesystem trigger</span
-              >
-            </div>
-            <div class="window-content">
-              <div class="usecase-pane">
-                <div class="usecase-col before">
-                  <div class="usecase-col-label">Before</div>
-                  <div class="file-path">~/Movies/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">🎬</span>
-                    <span class="file-name messy"
-                      >The.Dark.Knight.2008.1080p.BluRay.x264-YIFY.mkv</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🎬</span>
-                    <span class="file-name messy"
-                      >Inception.2010.BDRip.x264.mkv</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🎬</span>
-                    <span class="file-name messy"
-                      >interstellar_2014_full_movie_hd.mkv</span
-                    >
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >new</span
-                    >
-                  </div>
-                </div>
-
-                <div class="usecase-col routine">
-                  <div class="usecase-col-label">Routine</div>
-                  <div style="margin-bottom: 14px">
-                    <div class="usecase-field-label">Trigger</div>
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        margin-bottom: 3px;
-                      "
-                    >
-                      <span class="usecase-trigger-badge">Filesystem</span>
-                      <span
-                        style="
-                          font-size: 0.6875rem;
-                          color: var(--text-dim);
-                          font-family:
-                            &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                            monospace;
-                        "
-                        >~/Movies</span
-                      >
-                    </div>
-                    <div style="font-size: 0.6875rem; color: var(--text-faint)">
-                      on file created
-                    </div>
-                  </div>
-                  <div>
-                    <div class="usecase-field-label">Prompt</div>
-                    <div class="usecase-prompt">
-                      A new video file was added. Parse the filename to extract
-                      the movie title. Fetch the title, year, rating, and plot
-                      from IMDB. Rename the file to
-                      <code>Title (Year).ext</code> and write a
-                      <code>Title (Year).info.txt</code> alongside it.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="usecase-col after">
-                  <div class="usecase-col-label">After</div>
-                  <div class="file-path">~/Movies/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">🎬</span>
-                    <span class="file-name clean"
-                      >The Dark Knight (2008).mkv</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name meta"
-                      >The Dark Knight (2008).info.txt</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🎬</span>
-                    <span class="file-name clean">Inception (2010).mkv</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name meta"
-                      >Inception (2010).info.txt</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🎬</span>
-                    <span class="file-name clean">Interstellar (2014).mkv</span>
-                    <span class="file-new-badge">done</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name meta"
-                      >Interstellar (2014).info.txt</span
-                    >
-                    <span class="file-new-badge">done</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div class="relative mt-5 space-y-3 text-[13px] leading-relaxed">
+          <p>Found <strong>3 open PRs</strong>:</p>
+          <div>
+            <p><strong>#142 — Add rate limiting to API endpoints</strong></p>
+            <p class="text-muted-foreground">Token bucket limiting on <code class="rounded bg-accent/10 px-1 font-mono text-[11px] text-foreground">/api/routines</code>. No edge-case tests — recommend adding timeout scenarios.</p>
+          </div>
+          <div>
+            <p><strong>#139 — Fix SSE connection leak</strong></p>
+            <p class="text-muted-foreground">Small focused fix. Looks good.</p>
+          </div>
+          <div>
+            <p><strong>#136 — Migrate schema to support tags</strong></p>
+            <p class="text-muted-foreground">Migration is not idempotent — add an <code class="rounded bg-accent/10 px-1 font-mono text-[11px] text-foreground">IF NOT EXISTS</code> guard.</p>
           </div>
         </div>
 
-        <!-- Panel 1: Docs updater -->
-        <div class="tab-panel" data-uc-panel="1">
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-              <span
-                style="
-                  margin-left: 10px;
-                  font-size: 0.75rem;
-                  color: var(--text-dim);
-                "
-                >Docs updater &mdash; Filesystem + Cron</span
-              >
-            </div>
-            <div class="window-content">
-              <div class="usecase-pane">
-                <div class="usecase-col before">
-                  <div class="usecase-col-label">Before</div>
-                  <div class="file-path">~/projects/</div>
-                  <div class="file-folder">api/v1/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">openapi.yaml</span>
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >changed</span
-                    >
-                  </div>
-                  <div class="file-folder">services/auth/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">spec.yaml</span>
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >changed</span
-                    >
-                  </div>
-                  <div class="file-folder">docs/reference/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">api.md</span>
-                    <span
-                      class="file-new-badge"
-                      style="
-                        background: var(--bg-subtle);
-                        color: var(--text-faint);
-                      "
-                      >stale 3d</span
-                    >
-                  </div>
-                </div>
-
-                <div class="usecase-col routine">
-                  <div class="usecase-col-label">Routine</div>
-                  <div style="margin-bottom: 14px">
-                    <div class="usecase-field-label">Triggers</div>
-                    <div class="trigger-row">
-                      <span class="usecase-trigger-badge">Filesystem</span>
-                      <span
-                        style="
-                          font-size: 0.6875rem;
-                          color: var(--text-dim);
-                          font-family:
-                            &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                            monospace;
-                        "
-                        >api/v1, services/auth</span
-                      >
-                    </div>
-                    <div class="trigger-row">
-                      <span class="usecase-trigger-badge">Cron</span>
-                      <span style="font-size: 0.6875rem; color: var(--text-dim)"
-                        >daily at 09:00</span
-                      >
-                    </div>
-                  </div>
-                  <div>
-                    <div class="usecase-field-label">Prompt</div>
-                    <div class="usecase-prompt">
-                      The API specs have been updated. Read
-                      <code>api/v1/openapi.yaml</code> and
-                      <code>services/auth/spec.yaml</code>, then rewrite
-                      <code>docs/reference/api.md</code> to match. Add a dated
-                      entry to <code>CHANGELOG.md</code> summarising what
-                      changed.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="usecase-col after">
-                  <div class="usecase-col-label">After</div>
-                  <div class="file-path">~/projects/</div>
-                  <div class="file-folder">api/v1/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean">openapi.yaml</span>
-                  </div>
-                  <div class="file-folder">services/auth/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean">spec.yaml</span>
-                  </div>
-                  <div class="file-folder">docs/reference/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean">api.md</span>
-                    <span class="file-new-badge">done</span>
-                  </div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name meta">CHANGELOG.md</span>
-                    <span class="file-new-badge">done</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div class="relative mt-5 overflow-hidden rounded-xl border border-accent/15 bg-surface/60 shadow-sm">
+          <div class="grid grid-cols-3 border-b border-accent/15 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div>PR</div><div>Risk</div><div>Suggested reviewer</div>
+          </div>
+          <div class="grid grid-cols-3 items-center px-4 py-3 text-[13px]">
+            <div class="font-mono">#142</div>
+            <div class="font-medium text-warning">Medium</div>
+            <div class="font-mono text-[12px] text-muted-foreground">@sarah (api owner)</div>
+          </div>
+          <div class="grid grid-cols-3 items-center px-4 py-3 text-[13px] border-t border-accent/15">
+            <div class="font-mono">#139</div>
+            <div class="font-medium text-success">Low</div>
+            <div class="font-mono text-[12px] text-muted-foreground">@david (infra)</div>
+          </div>
+          <div class="grid grid-cols-3 items-center px-4 py-3 text-[13px] border-t border-accent/15">
+            <div class="font-mono">#136</div>
+            <div class="font-medium text-warning">Medium</div>
+            <div class="font-mono text-[12px] text-muted-foreground">@sarah (database)</div>
           </div>
         </div>
+      </div>
 
-        <!-- Panel 2: Screenshot renamer -->
-        <div class="tab-panel" data-uc-panel="2">
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-              <span
-                style="
-                  margin-left: 10px;
-                  font-size: 0.75rem;
-                  color: var(--text-dim);
-                "
-                >Screenshot renamer &mdash; Filesystem + Vision</span
-              >
-            </div>
-            <div class="window-content">
-              <div class="usecase-pane">
-                <div class="usecase-col before">
-                  <div class="usecase-col-label">Before</div>
-                  <div class="file-path">~/Downloads/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">🖼️</span>
-                    <span class="file-name messy"
-                      >Screen Shot 2024-01-15 at 3.45.23 PM.png</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🖼️</span>
-                    <span class="file-name messy"
-                      >Screen Shot 2024-01-16 at 9.12.04 AM.png</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🖼️</span>
-                    <span class="file-name messy"
-                      >Screen Shot 2024-01-16 at 11.30.45 AM.png</span
-                    >
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >new</span
-                    >
-                  </div>
-                </div>
+      <div class="mt-6 flex gap-2">
+        <input class="flex-1 rounded-lg border border-border bg-canvas/40 px-3.5 py-2.5 text-[13px] outline-none focus:border-accent" placeholder="Follow up…" />
+        <button class="rounded-lg bg-muted px-4 text-[13px] font-medium text-muted-foreground">Send</button>
+      </div>
+    </div>
+    </div>
+  </div>
 
-                <div class="usecase-col routine">
-                  <div class="usecase-col-label">Routine</div>
-                  <div style="margin-bottom: 14px">
-                    <div class="usecase-field-label">Trigger</div>
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        margin-bottom: 3px;
-                      "
-                    >
-                      <span class="usecase-trigger-badge">Filesystem</span>
-                      <span
-                        style="
-                          font-size: 0.6875rem;
-                          color: var(--text-dim);
-                          font-family:
-                            &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                            monospace;
-                        "
-                        >~/Downloads</span
-                      >
-                    </div>
-                    <div style="font-size: 0.6875rem; color: var(--text-faint)">
-                      on .png / .jpg created
-                    </div>
-                  </div>
-                  <div>
-                    <div class="usecase-field-label">Prompt</div>
-                    <div class="usecase-prompt">
-                      A new screenshot was saved to Downloads. Use vision to
-                      understand what's shown in the image. Rename it to a
-                      short, descriptive kebab-case filename that captures the
-                      content (e.g. <code>app-feature-state.png</code>). Do not
-                      move the file.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="usecase-col after">
-                  <div class="usecase-col-label">After</div>
-                  <div class="file-path">~/Downloads/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">🖼️</span>
-                    <span class="file-name clean"
-                      >clerk-dashboard-empty-state.png</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🖼️</span>
-                    <span class="file-name clean"
-                      >terminal-git-rebase-conflict.png</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">🖼️</span>
-                    <span class="file-name clean"
-                      >figma-onboarding-flow-v2.png</span
-                    >
-                    <span class="file-new-badge">done</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 3: Receipt tracker -->
-        <div class="tab-panel" data-uc-panel="3">
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-              <span
-                style="
-                  margin-left: 10px;
-                  font-size: 0.75rem;
-                  color: var(--text-dim);
-                "
-                >Receipt tracker &mdash; Filesystem trigger</span
-              >
-            </div>
-            <div class="window-content">
-              <div class="usecase-pane">
-                <div class="usecase-col before">
-                  <div class="usecase-col-label">Before</div>
-                  <div class="file-path">~/Receipts/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">receipt_001.pdf</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">wholefoods_scan.jpg</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">amazon-order-jan16.pdf</span>
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >new</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📊</span>
-                    <span class="file-name messy">expenses.csv</span>
-                    <span
-                      class="file-new-badge"
-                      style="
-                        background: var(--bg-subtle);
-                        color: var(--text-faint);
-                      "
-                      >stale 5d</span
-                    >
-                  </div>
-                </div>
-
-                <div class="usecase-col routine">
-                  <div class="usecase-col-label">Routine</div>
-                  <div style="margin-bottom: 14px">
-                    <div class="usecase-field-label">Trigger</div>
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        margin-bottom: 3px;
-                      "
-                    >
-                      <span class="usecase-trigger-badge">Filesystem</span>
-                      <span
-                        style="
-                          font-size: 0.6875rem;
-                          color: var(--text-dim);
-                          font-family:
-                            &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                            monospace;
-                        "
-                        >~/Receipts</span
-                      >
-                    </div>
-                    <div style="font-size: 0.6875rem; color: var(--text-faint)">
-                      on file created
-                    </div>
-                  </div>
-                  <div>
-                    <div class="usecase-field-label">Prompt</div>
-                    <div class="usecase-prompt">
-                      A new receipt was added. Extract the vendor name, date,
-                      and total amount. Rename the file to
-                      <code>YYYY-MM-DD_Vendor_Amount.ext</code>. Append a new
-                      row to <code>expenses.csv</code> with date, vendor,
-                      amount, and a best-guess category.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="usecase-col after">
-                  <div class="usecase-col-label">After</div>
-                  <div class="file-path">~/Receipts/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean"
-                      >2024-01-10_Stripe_149.00.pdf</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean"
-                      >2024-01-12_Whole_Foods_23.80.jpg</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean"
-                      >2024-01-16_Amazon_42.50.pdf</span
-                    >
-                    <span class="file-new-badge">done</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📊</span>
-                    <span class="file-name meta">expenses.csv</span>
-                    <span class="file-new-badge">updated</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 4: Notes indexer -->
-        <div class="tab-panel" data-uc-panel="4">
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-              <span
-                style="
-                  margin-left: 10px;
-                  font-size: 0.75rem;
-                  color: var(--text-dim);
-                "
-                >Notes indexer &mdash; Filesystem trigger</span
-              >
-            </div>
-            <div class="window-content">
-              <div class="usecase-pane">
-                <div class="usecase-col before">
-                  <div class="usecase-col-label">Before</div>
-                  <div class="file-path">~/Notes/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">📝</span>
-                    <span class="file-name messy"
-                      >meeting-product-2024-01-15.md</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📝</span>
-                    <span class="file-name messy">research-competitors.md</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📝</span>
-                    <span class="file-name messy">idea-async-pipeline.md</span>
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >changed</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">INDEX.md</span>
-                    <span
-                      class="file-new-badge"
-                      style="
-                        background: var(--bg-subtle);
-                        color: var(--text-faint);
-                      "
-                      >stale 2d</span
-                    >
-                  </div>
-                </div>
-
-                <div class="usecase-col routine">
-                  <div class="usecase-col-label">Routine</div>
-                  <div style="margin-bottom: 14px">
-                    <div class="usecase-field-label">Trigger</div>
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        margin-bottom: 3px;
-                      "
-                    >
-                      <span class="usecase-trigger-badge">Filesystem</span>
-                      <span
-                        style="
-                          font-size: 0.6875rem;
-                          color: var(--text-dim);
-                          font-family:
-                            &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                            monospace;
-                        "
-                        >~/Notes</span
-                      >
-                    </div>
-                    <div style="font-size: 0.6875rem; color: var(--text-faint)">
-                      on file created or changed
-                    </div>
-                  </div>
-                  <div>
-                    <div class="usecase-field-label">Prompt</div>
-                    <div class="usecase-prompt">
-                      A note was updated. Read all <code>.md</code> files in the
-                      Notes folder. Extract topics, people, decisions, and
-                      action items from each. Rewrite <code>INDEX.md</code> as a
-                      structured index: topics → notes, people mentioned →
-                      notes, open action items.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="usecase-col after">
-                  <div class="usecase-col-label">After</div>
-                  <div class="file-path">~/Notes/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">📝</span>
-                    <span class="file-name clean"
-                      >meeting-product-2024-01-15.md</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📝</span>
-                    <span class="file-name clean">research-competitors.md</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📝</span>
-                    <span class="file-name clean">idea-async-pipeline.md</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean">INDEX.md</span>
-                    <span class="file-new-badge">done</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 5: Changelog writer -->
-        <div class="tab-panel" data-uc-panel="5">
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-              <span
-                style="
-                  margin-left: 10px;
-                  font-size: 0.75rem;
-                  color: var(--text-dim);
-                "
-                >Changelog writer &mdash; Git watcher</span
-              >
-            </div>
-            <div class="window-content">
-              <div class="usecase-pane">
-                <div class="usecase-col before">
-                  <div class="usecase-col-label">Before</div>
-                  <div class="file-path">~/projects/my-app/</div>
-                  <div class="file-folder">.git/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">COMMIT_EDITMSG</span>
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >new commit</span
-                    >
-                  </div>
-                  <div class="file-folder">root</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">CHANGELOG.md</span>
-                    <span
-                      class="file-new-badge"
-                      style="
-                        background: var(--bg-subtle);
-                        color: var(--text-faint);
-                      "
-                      >stale v1.2</span
-                    >
-                  </div>
-                </div>
-
-                <div class="usecase-col routine">
-                  <div class="usecase-col-label">Routine</div>
-                  <div style="margin-bottom: 14px">
-                    <div class="usecase-field-label">Trigger</div>
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        margin-bottom: 3px;
-                      "
-                    >
-                      <span class="usecase-trigger-badge">Filesystem</span>
-                      <span
-                        style="
-                          font-size: 0.6875rem;
-                          color: var(--text-dim);
-                          font-family:
-                            &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                            monospace;
-                        "
-                        >.git/COMMIT_EDITMSG</span
-                      >
-                    </div>
-                    <div style="font-size: 0.6875rem; color: var(--text-faint)">
-                      on file changed
-                    </div>
-                  </div>
-                  <div>
-                    <div class="usecase-field-label">Prompt</div>
-                    <div class="usecase-prompt">
-                      A new commit was just made. Run <code>git log</code> to
-                      read commits since the last
-                      <code>CHANGELOG.md</code> entry. Group them by type (feat,
-                      fix, chore). Append a new dated version section to
-                      <code>CHANGELOG.md</code>.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="usecase-col after">
-                  <div class="usecase-col-label">After</div>
-                  <div class="file-path">~/projects/my-app/</div>
-                  <div class="file-folder">.git/</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean">COMMIT_EDITMSG</span>
-                  </div>
-                  <div class="file-folder">root</div>
-                  <div class="file-entry indented">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean">CHANGELOG.md</span>
-                    <span class="file-new-badge">v1.3 added</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 6: Contract parser -->
-        <div class="tab-panel" data-uc-panel="6">
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-              <span
-                style="
-                  margin-left: 10px;
-                  font-size: 0.75rem;
-                  color: var(--text-dim);
-                "
-                >Contract parser &mdash; Filesystem trigger</span
-              >
-            </div>
-            <div class="window-content">
-              <div class="usecase-pane">
-                <div class="usecase-col before">
-                  <div class="usecase-col-label">Before</div>
-                  <div class="file-path">~/Contracts/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy"
-                      >NDA-unsigned-v3-FINAL(1).pdf</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy"
-                      >contract_scan_jan2024.pdf</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name messy">MSA_acme_draft_2024.pdf</span>
-                    <span
-                      class="file-new-badge"
-                      style="background: #fff3cd; color: #856404"
-                      >new</span
-                    >
-                  </div>
-                </div>
-
-                <div class="usecase-col routine">
-                  <div class="usecase-col-label">Routine</div>
-                  <div style="margin-bottom: 14px">
-                    <div class="usecase-field-label">Trigger</div>
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        margin-bottom: 3px;
-                      "
-                    >
-                      <span class="usecase-trigger-badge">Filesystem</span>
-                      <span
-                        style="
-                          font-size: 0.6875rem;
-                          color: var(--text-dim);
-                          font-family:
-                            &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                            monospace;
-                        "
-                        >~/Contracts</span
-                      >
-                    </div>
-                    <div style="font-size: 0.6875rem; color: var(--text-faint)">
-                      on file created
-                    </div>
-                  </div>
-                  <div>
-                    <div class="usecase-field-label">Prompt</div>
-                    <div class="usecase-prompt">
-                      A new contract was added. Extract the contract type,
-                      parties, effective date, expiration date, and key
-                      obligations. Rename to
-                      <code>Type_Party_Date_status.pdf</code>. Write a
-                      <code>_summary.md</code> alongside it with the structured
-                      key terms.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="usecase-col after">
-                  <div class="usecase-col-label">After</div>
-                  <div class="file-path">~/Contracts/</div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean"
-                      >NDA_TechCorp_2024-01-10_signed.pdf</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean"
-                      >services-agreement_ClientCo_2024-01-05.pdf</span
-                    >
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name clean"
-                      >MSA_Acme_2024-01-16_draft.pdf</span
-                    >
-                    <span class="file-new-badge">done</span>
-                  </div>
-                  <div class="file-entry">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name meta"
-                      >MSA_Acme_2024-01-16_summary.md</span
-                    >
-                    <span class="file-new-badge">done</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ========== Why ========== -->
-    <section class="why">
-      <div class="container">
-        <h2>Why this exists</h2>
-        <p>
-          Claude Code
-          <a href="https://code.claude.com/docs/en/routines">routines</a> are a
-          great idea &mdash; save a prompt, pick a trigger, let it run. But
-          you're locked into their platform, their models, and their limits.
-          OpenCode Routines gives you the same thing, self-hosted, with any
-          model <a href="https://opencode.ai">OpenCode</a> supports, and the
-          agent can only touch the files you explicitly mount.
-        </p>
+    <!-- Settings + CTA -->
+    <section class="container py-24">
+      <div class="grid items-center gap-12 md:grid-cols-2">
+        <div>
+          
+  <div class="window-chrome overflow-hidden ">
+    <div class="window-titlebar bg-canvas/60">
+      <span class="window-dot bg-[hsl(0_75%_65%)]"></span>
+      <span class="window-dot bg-[hsl(40_90%_60%)]"></span>
+      <span class="window-dot bg-[hsl(140_55%_55%)]"></span>
+      
+    </div>
+    <div>
+    
+  <div class="flex items-center gap-8 border-b border-border/70 px-6 py-4">
+    <div class="flex items-center gap-2">
+      <div class="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-accent to-accent-warm text-white">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+        </svg>
       </div>
-    </section>
+      <span class="text-[15px] font-semibold tracking-tight">Opencode Routines</span>
+    </div>
+    <nav class="flex items-center gap-1">
+      <button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Routines</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground">Runs</button>
+<button class="rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors bg-accent/15 text-accent">Settings</button>
 
-    <!-- ========== Screens ========== -->
-    <section class="screens">
-      <div class="container">
-        <h2>See it in action</h2>
+    </nav>
+  </div>
 
-        <!-- Tab bar -->
-        <div class="tab-bar">
-          <button class="tab active" data-tab="0">Easy overview</button>
-          <button class="tab" data-tab="1">Easy creation</button>
-          <button class="tab" data-tab="2">Easy feedback</button>
-          <button class="tab" data-tab="3">Easy setup</button>
+    <div class="px-8 py-7">
+      <h2 class="text-[22px] font-semibold tracking-tight">Settings</h2>
+
+      <div class="mt-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-[14px] font-semibold">Providers</h3>
+          <button class="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground shadow-sm">
+            Add provider
+          </button>
         </div>
 
-        <!-- Screen 1: Dashboard -->
-        <div class="screen-section tab-panel active" data-panel="0">
-          <p class="screen-desc">
-            See what's running at a glance. Stats, recent runs, one click to
-            create.
+        <div class="mt-3 overflow-hidden rounded-lg border border-border">
+          
+        <div class="flex items-center justify-between px-4 py-3 text-[13px] ">
+          <div class="flex items-center gap-3">
+            <span class="font-medium">Anthropic</span>
+            <span class="pill bg-success-soft text-success">Connected</span>
+          </div>
+          <button class="text-[12px] font-medium text-destructive">Remove</button>
+        </div>
+        
+        <div class="flex items-center justify-between px-4 py-3 text-[13px] border-t border-border/70">
+          <div class="flex items-center gap-3">
+            <span class="font-medium">OpenAI</span>
+            <span class="pill bg-success-soft text-success">Connected</span>
+          </div>
+          <button class="text-[12px] font-medium text-destructive">Remove</button>
+        </div>
+        
+        </div>
+      </div>
+
+      <div class="mt-7">
+        <h3 class="text-[14px] font-semibold">Favourite models</h3>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <span class="rounded-full bg-primary px-3 py-1 font-mono text-[12px] text-primary-foreground">claude-sonnet-4-6</span>
+          <span class="rounded-full bg-primary px-3 py-1 font-mono text-[12px] text-primary-foreground">claude-haiku-4-5</span>
+          <button class="rounded-full border border-accent/40 px-3 py-1 text-[12px] font-medium text-accent">+ Add</button>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+        </div>
+        <div>
+          <div class="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">Settings</div>
+          <h2 class="mt-3 text-balance text-[34px] font-semibold leading-tight tracking-tight md:text-[40px]">
+            Plug in your <span class="font-serif-display italic">favourite models</span>.
+          </h2>
+          <p class="mt-4 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+            Connect a provider once, then pin the models you actually use. Switch per routine
+            when you need cheaper, faster, or smarter.
           </p>
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-            </div>
-            <div class="window-content">
-              <div class="app-header">
-                <span class="app-logo">Opencode Routines</span>
-                <div class="app-nav">
-                  <span class="app-nav-item">Routines</span>
-                  <span class="app-nav-item">Runs</span>
-                  <span class="app-nav-item">Settings</span>
-                </div>
-              </div>
-              <div class="app-body">
-                <div
-                  style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 20px;
-                  "
-                >
-                  <span style="font-size: 1.125rem; font-weight: 600"
-                    >Recent runs</span
-                  >
-                  <span
-                    class="form-btn form-btn-primary"
-                    style="font-size: 0.75rem; padding: 5px 12px"
-                    >New Routine</span
-                  >
-                </div>
-                <div class="stat-grid">
-                  <div class="stat-card">
-                    <div class="stat-value">7</div>
-                    <div class="stat-label">Routines</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-value blue">2</div>
-                    <div class="stat-label">Running</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-value red">1</div>
-                    <div class="stat-label">Recent failures</div>
-                  </div>
-                </div>
-                <div class="runs-header">
-                  <h3>Recent runs</h3>
-                  <a href="#">View all</a>
-                </div>
-                <table class="runs-table">
-                  <thead>
-                    <tr>
-                      <th>Routine</th>
-                      <th>Trigger</th>
-                      <th>Status</th>
-                      <th>Started</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style="font-weight: 500">PR review summary</td>
-                      <td style="color: var(--text-dim)">cron</td>
-                      <td><span class="status running">running</span></td>
-                      <td style="color: var(--text-dim)">just now</td>
-                    </tr>
-                    <tr>
-                      <td style="font-weight: 500">Docs drift check</td>
-                      <td style="color: var(--text-dim)">filesystem</td>
-                      <td><span class="status success">success</span></td>
-                      <td style="color: var(--text-dim)">23 min ago</td>
-                    </tr>
-                    <tr>
-                      <td style="font-weight: 500">Nightly test runner</td>
-                      <td style="color: var(--text-dim)">cron</td>
-                      <td><span class="status failed">failed</span></td>
-                      <td style="color: var(--text-dim)">6 hours ago</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Screen 2: Create routine -->
-        <div class="screen-section tab-panel" data-panel="1">
-          <p class="screen-desc">
-            Pick a name, write a prompt, choose your model and schedule. That's
-            it.
-          </p>
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-            </div>
-            <div class="window-content">
-              <div class="app-header">
-                <span class="app-logo">Opencode Routines</span>
-                <div class="app-nav">
-                  <span class="app-nav-item">Routines</span>
-                  <span class="app-nav-item">Runs</span>
-                  <span class="app-nav-item">Settings</span>
-                </div>
-              </div>
-              <div class="app-body" style="max-width: 540px">
-                <div style="margin-bottom: 16px">
-                  <span style="font-size: 0.75rem; color: var(--blue)"
-                    >&#8592; Routines</span
-                  >
-                  <div
-                    style="
-                      font-size: 1.125rem;
-                      font-weight: 600;
-                      margin-top: 6px;
-                    "
-                  >
-                    New Routine
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Name</label>
-                  <input
-                    class="form-input"
-                    value="PR review summary"
-                    readonly
-                  />
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Prompt</label>
-                  <textarea class="form-textarea" rows="3" readonly>
-Review all open PRs. For each one, summarise the changes, flag issues, and suggest reviewers based on code ownership.</textarea
-                  >
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Model</label>
-                  <div
-                    class="form-select"
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                      align-items: center;
-                    "
-                  >
-                    <span style="font-size: 0.8125rem"
-                      >anthropic/claude-sonnet-4-6</span
-                    >
-                    <span style="font-size: 0.625rem; color: var(--text-dim)"
-                      >&#9662;</span
-                    >
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Triggers</label>
-                  <!-- Cron trigger card -->
-                  <div
-                    style="
-                      border: 1px solid var(--border);
-                      border-radius: 8px;
-                      overflow: hidden;
-                      margin-bottom: 6px;
-                    "
-                  >
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        padding: 7px 12px;
-                        background: var(--bg-subtle);
-                      "
-                    >
-                      <span
-                        style="
-                          display: flex;
-                          align-items: center;
-                          gap: 6px;
-                          font-size: 0.8125rem;
-                          font-weight: 500;
-                        "
-                      >
-                        <span style="font-size: 0.625rem">&#8250;</span>
-                        Cron
-                        <span
-                          style="
-                            font-size: 0.75rem;
-                            font-weight: 400;
-                            color: var(--text-dim);
-                          "
-                          >daily at 09:00</span
-                        >
-                      </span>
-                      <span style="font-size: 0.75rem; color: var(--red)"
-                        >Remove</span
-                      >
-                    </div>
-                  </div>
-                  <!-- Filesystem trigger card -->
-                  <div
-                    style="
-                      border: 1px solid var(--border);
-                      border-radius: 8px;
-                      overflow: hidden;
-                      margin-bottom: 8px;
-                    "
-                  >
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        padding: 7px 12px;
-                        background: var(--bg-subtle);
-                      "
-                    >
-                      <span
-                        style="
-                          display: flex;
-                          align-items: center;
-                          gap: 6px;
-                          font-size: 0.8125rem;
-                          font-weight: 500;
-                        "
-                      >
-                        <span style="font-size: 0.625rem">&#8250;</span>
-                        Filesystem
-                        <span
-                          style="
-                            font-size: 0.75rem;
-                            font-weight: 400;
-                            color: var(--text-dim);
-                            font-family:
-                              &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                              monospace;
-                          "
-                          >~/projects</span
-                        >
-                      </span>
-                      <span style="font-size: 0.75rem; color: var(--red)"
-                        >Remove</span
-                      >
-                    </div>
-                  </div>
-                  <span
-                    style="
-                      font-size: 0.75rem;
-                      color: var(--blue);
-                      cursor: default;
-                    "
-                    >+ Add another trigger</span
-                  >
-                </div>
-
-                <div class="form-actions">
-                  <span class="form-btn form-btn-primary">Save routine</span>
-                  <span class="form-btn form-btn-secondary">Cancel</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Screen 3: Run detail / chat -->
-        <div class="screen-section tab-panel" data-panel="2">
-          <p class="screen-desc">
-            Watch the agent work in real time. Follow up with questions when
-            it's done.
-          </p>
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-            </div>
-            <div class="window-content">
-              <div class="app-header">
-                <span class="app-logo">Opencode Routines</span>
-                <div class="app-nav">
-                  <span class="app-nav-item">Routines</span>
-                  <span class="app-nav-item">Runs</span>
-                  <span class="app-nav-item">Settings</span>
-                </div>
-              </div>
-              <div class="app-body">
-                <div class="chat-header">
-                  <span class="chat-back">&#8592; Runs</span>
-                  <div class="chat-title">PR review summary</div>
-                  <div class="chat-meta">
-                    <span class="status success">success</span>
-                    <span class="dot">&middot;</span>
-                    <span>Cron</span>
-                    <span class="dot">&middot;</span>
-                    <span>1m 32s</span>
-                  </div>
-                </div>
-
-                <div class="chat-thread">
-                  <div class="user-bubble">
-                    Review all open PRs in the main branch. For each PR:&#10;1.
-                    Summarize the changes&#10;2. Flag any potential
-                    issues&#10;3. Suggest reviewers based on code ownership
-                  </div>
-
-                  <div class="agent-response">
-                    <div class="tool-row">
-                      <span class="arrow">&#8250;</span>
-                      Ran <span class="tool-name">bash</span>
-                    </div>
-                    <div class="tool-row">
-                      <span class="arrow">&#8250;</span>
-                      Ran <span class="tool-name">bash</span>
-                    </div>
-
-                    <p>Found <strong>3 open PRs</strong>:</p>
-
-                    <p>
-                      <strong
-                        >#142 &mdash; Add rate limiting to API endpoints</strong
-                      ><br />
-                      Token bucket limiting on <code>/api/routines</code>. No
-                      edge-case tests &mdash; recommend adding timeout
-                      scenarios.
-                    </p>
-
-                    <p>
-                      <strong>#139 &mdash; Fix SSE connection leak</strong
-                      ><br />
-                      Small focused fix. Looks good.
-                    </p>
-
-                    <p>
-                      <strong
-                        >#136 &mdash; Migrate schema to support tags</strong
-                      ><br />
-                      Migration is not idempotent &mdash; add an
-                      <code>IF NOT EXISTS</code> guard.
-                    </p>
-
-                    <table
-                      style="
-                        width: 100%;
-                        border-collapse: collapse;
-                        font-size: 0.75rem;
-                        border: 1px solid var(--border);
-                        border-radius: 8px;
-                        overflow: hidden;
-                        margin: 8px 0;
-                      "
-                    >
-                      <thead style="background: var(--bg-subtle)">
-                        <tr>
-                          <th
-                            style="
-                              text-align: left;
-                              padding: 6px 10px;
-                              font-size: 0.6875rem;
-                              font-weight: 500;
-                              color: var(--text-dim);
-                              text-transform: uppercase;
-                              letter-spacing: 0.03em;
-                              border-bottom: 1px solid var(--border);
-                            "
-                          >
-                            PR
-                          </th>
-                          <th
-                            style="
-                              text-align: left;
-                              padding: 6px 10px;
-                              font-size: 0.6875rem;
-                              font-weight: 500;
-                              color: var(--text-dim);
-                              text-transform: uppercase;
-                              letter-spacing: 0.03em;
-                              border-bottom: 1px solid var(--border);
-                            "
-                          >
-                            Risk
-                          </th>
-                          <th
-                            style="
-                              text-align: left;
-                              padding: 6px 10px;
-                              font-size: 0.6875rem;
-                              font-weight: 500;
-                              color: var(--text-dim);
-                              text-transform: uppercase;
-                              letter-spacing: 0.03em;
-                              border-bottom: 1px solid var(--border);
-                            "
-                          >
-                            Suggested reviewer
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td
-                            style="
-                              padding: 7px 10px;
-                              border-bottom: 1px solid var(--border-faint);
-                              font-weight: 500;
-                            "
-                          >
-                            #142
-                          </td>
-                          <td
-                            style="
-                              padding: 7px 10px;
-                              border-bottom: 1px solid var(--border-faint);
-                              color: var(--orange);
-                              font-weight: 500;
-                            "
-                          >
-                            Medium
-                          </td>
-                          <td
-                            style="
-                              padding: 7px 10px;
-                              border-bottom: 1px solid var(--border-faint);
-                              color: var(--text-dim);
-                            "
-                          >
-                            @sarah (api owner)
-                          </td>
-                        </tr>
-                        <tr>
-                          <td
-                            style="
-                              padding: 7px 10px;
-                              border-bottom: 1px solid var(--border-faint);
-                              font-weight: 500;
-                            "
-                          >
-                            #139
-                          </td>
-                          <td
-                            style="
-                              padding: 7px 10px;
-                              border-bottom: 1px solid var(--border-faint);
-                              color: var(--green);
-                              font-weight: 500;
-                            "
-                          >
-                            Low
-                          </td>
-                          <td
-                            style="
-                              padding: 7px 10px;
-                              border-bottom: 1px solid var(--border-faint);
-                              color: var(--text-dim);
-                            "
-                          >
-                            @david (infra)
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 7px 10px; font-weight: 500">
-                            #136
-                          </td>
-                          <td
-                            style="
-                              padding: 7px 10px;
-                              color: var(--orange);
-                              font-weight: 500;
-                            "
-                          >
-                            Medium
-                          </td>
-                          <td style="padding: 7px 10px; color: var(--text-dim)">
-                            @sarah (database)
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div class="reply-bar">
-                    <textarea class="reply-input" rows="2" readonly>
-Follow up...</textarea
-                    >
-                    <span class="reply-btn">Send</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Screen 4: Settings -->
-        <div class="screen-section tab-panel" data-panel="3">
-          <p class="screen-desc">
-            Connect your LLM providers once. API keys are injected into every
-            run automatically.
-          </p>
-          <div class="window">
-            <div class="window-bar">
-              <span class="window-dot red"></span>
-              <span class="window-dot yellow"></span>
-              <span class="window-dot green"></span>
-            </div>
-            <div class="window-content">
-              <div class="app-header">
-                <span class="app-logo">Opencode Routines</span>
-                <div class="app-nav">
-                  <span class="app-nav-item">Routines</span>
-                  <span class="app-nav-item">Runs</span>
-                  <span class="app-nav-item">Settings</span>
-                </div>
-              </div>
-              <div class="app-body">
-                <div
-                  style="
-                    font-size: 1.0625rem;
-                    font-weight: 600;
-                    margin-bottom: 16px;
-                  "
-                >
-                  Settings
-                </div>
-
-                <!-- Providers -->
-                <div style="margin-bottom: 20px">
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                      align-items: center;
-                      margin-bottom: 8px;
-                    "
-                  >
-                    <span style="font-size: 0.8125rem; font-weight: 600"
-                      >Providers</span
-                    >
-                    <span
-                      class="form-btn form-btn-primary"
-                      style="font-size: 0.75rem; padding: 4px 10px"
-                      >Add provider</span
-                    >
-                  </div>
-                  <div
-                    style="
-                      border: 1px solid var(--border);
-                      border-radius: 8px;
-                      overflow: hidden;
-                    "
-                  >
-                    <div
-                      style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        padding: 9px 14px;
-                        border-bottom: 1px solid var(--border-faint);
-                        font-size: 0.8125rem;
-                      "
-                    >
-                      <span
-                        style="display: flex; align-items: center; gap: 8px"
-                      >
-                        <span style="font-weight: 500">Anthropic</span>
-                        <span
-                          style="
-                            background: #d1f5d3;
-                            color: #1a7f37;
-                            border-radius: 999px;
-                            padding: 2px 8px;
-                            font-size: 0.6875rem;
-                            font-weight: 500;
-                          "
-                          >Connected</span
-                        >
-                      </span>
-                      <span style="font-size: 0.75rem; color: var(--red)"
-                        >Remove</span
-                      >
-                    </div>
-                    <div
-                      style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        padding: 9px 14px;
-                        font-size: 0.8125rem;
-                      "
-                    >
-                      <span
-                        style="display: flex; align-items: center; gap: 8px"
-                      >
-                        <span style="font-weight: 500">OpenAI</span>
-                        <span
-                          style="
-                            background: #d1f5d3;
-                            color: #1a7f37;
-                            border-radius: 999px;
-                            padding: 2px 8px;
-                            font-size: 0.6875rem;
-                            font-weight: 500;
-                          "
-                          >Connected</span
-                        >
-                      </span>
-                      <span style="font-size: 0.75rem; color: var(--red)"
-                        >Remove</span
-                      >
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Favourite models -->
-                <div>
-                  <div
-                    style="
-                      font-size: 0.8125rem;
-                      font-weight: 600;
-                      margin-bottom: 8px;
-                    "
-                  >
-                    Favourite models
-                  </div>
-                  <div class="pill-group">
-                    <span
-                      class="pill active"
-                      style="
-                        font-family:
-                          &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                          monospace;
-                        font-size: 0.75rem;
-                      "
-                      >claude-sonnet-4-6</span
-                    >
-                    <span
-                      class="pill active"
-                      style="
-                        font-family:
-                          &quot;SF Mono&quot;, &quot;Fira Code&quot;, Menlo,
-                          monospace;
-                        font-size: 0.75rem;
-                      "
-                      >claude-haiku-4-5</span
-                    >
-                    <span
-                      class="pill"
-                      style="color: var(--blue); border-color: var(--blue)"
-                      >+ Add</span
-                    >
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </section>
 
-    <!-- ========== Quick start ========== -->
-    <section class="quickstart" id="quickstart">
-      <div class="container">
-        <h2>Quick start</h2>
-        <pre><span class="comment"># Clone the repo</span>
-git clone https://github.com/tessellate-digital/opencode-routines.git
-cd opencode-routines
-
-<span class="comment"># Install dependencies (needed for the host agent)</span>
-npm install
-
-<span class="comment"># Start everything</span>
-npm run up</pre>
-        <p>
-          Starts the Docker stack and the host agent in one command. Open
-          <strong>http://localhost:8080</strong>, create a routine, pick a
-          trigger, done.
-        </p>
+    <!-- Final CTA -->
+    <section class="container pb-28">
+      <div class="relative overflow-hidden rounded-2xl border border-border bg-accent px-10 py-16 text-center text-white shadow-accent">
+        <div class="absolute inset-0 opacity-[0.08]" style="background-image: radial-gradient(white 1px, transparent 1px); background-size: 16px 16px"></div>
+        <h2 class="relative text-balance text-[36px] font-semibold leading-tight tracking-tight md:text-[48px]">
+          Stop checking things.<br />
+          <span class="font-serif-display italic opacity-90">Let routines do it.</span>
+        </h2>
+        <div class="relative mt-7 flex flex-wrap items-center justify-center gap-3">
+          <a class="rounded-lg bg-white px-5 py-2.5 text-[14px] font-medium text-accent shadow-md">
+            Create your first routine
+          </a>
+          <a class="rounded-lg border border-white/30 px-5 py-2.5 text-[14px] font-medium text-white/90 hover:bg-white/10">
+            Read the docs
+          </a>
+        </div>
       </div>
     </section>
 
-    <!-- ========== Coming soon ========== -->
-    <section class="coming-soon">
-      <div class="container">
-        <h2>Coming soon</h2>
-        <ul class="roadmap-list">
-          <li>GitHub triggers &mdash; react to pushes, PRs, issues</li>
-          <li>Slack integration &mdash; post summaries, trigger from Slack</li>
-          <li>Run cost analytics</li>
-          <li>Email notifications</li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- ========== Footer ========== -->
-    <footer>
-      <div class="container">
-        <p>
-          MIT License &mdash;
-          <a href="https://github.com/tessellate-digital/opencode-routines"
-            >GitHub</a
-          >
-        </p>
+    <footer class="border-t border-border/70">
+      <div class="container flex flex-col items-center justify-between gap-3 py-8 text-[12px] text-muted-foreground md:flex-row">
+        <div class="font-mono">© opencode-routines</div>
+        <div class="flex gap-5">
+          <a class="hover:text-foreground">GitHub</a>
+          <a class="hover:text-foreground">Docs</a>
+          <a class="hover:text-foreground">Changelog</a>
+        </div>
       </div>
     </footer>
+    </div>
+  </div>
 
-    <script>
-      // "See it in action" tabs
-      document.querySelectorAll("[data-tab]").forEach((tab) => {
-        tab.addEventListener("click", () => {
-          const idx = tab.dataset.tab;
-          document
-            .querySelectorAll("[data-tab]")
-            .forEach((t) =>
-              t.classList.toggle("active", t.dataset.tab === idx),
-            );
-          document
-            .querySelectorAll("[data-panel]")
-            .forEach((p) =>
-              p.classList.toggle("active", p.dataset.panel === idx),
-            );
-        });
-      });
-
-      // Rotating noun + panel auto-switch
-      const ucPanels = Array.from(document.querySelectorAll("[data-uc-panel]"));
-      const ucNounText = document.querySelector(".noun-text");
-      const ucNoun = document.querySelector(".rotating-noun");
-      const ucNouns = [
-        "movie organiser",
-        "docs updater",
-        "screenshot renamer",
-        "receipt tracker",
-        "notes indexer",
-        "changelog writer",
-        "contract parser",
-      ];
-      let ucIdx = 0;
-
-      // Lock the container to the widest noun so the background never resizes
-      (function () {
-        const h2 = document.querySelector(".usecase-heading");
-        const cs = getComputedStyle(h2);
-        const probe = document.createElement("span");
-        probe.setAttribute("aria-hidden", "true");
-        probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font-size:${cs.fontSize};font-weight:${cs.fontWeight};font-family:${cs.fontFamily};`;
-        document.body.appendChild(probe);
-        let maxW = 0;
-        ucNouns.forEach((n) => {
-          probe.textContent = n;
-          maxW = Math.max(maxW, probe.offsetWidth);
-        });
-        document.body.removeChild(probe);
-        ucNoun.style.width = maxW + "px";
-      })();
-
-      function switchUcTab(idx) {
-        // Exit: slide up and out
-        ucNounText.style.opacity = "0";
-        ucNounText.style.transform = "translateY(-110%)";
-        setTimeout(() => {
-          // Instantly reposition below (no transition)
-          ucNounText.style.transition = "none";
-          ucNounText.style.transform = "translateY(110%)";
-          ucNounText.textContent = ucNouns[idx];
-          ucPanels.forEach((p, i) => p.classList.toggle("active", i === idx));
-          ucIdx = idx;
-          // Force reflow so the jump is applied before re-enabling transition
-          void ucNounText.offsetWidth;
-          // Enter: slide up from below
-          ucNounText.style.transition = "";
-          ucNounText.style.opacity = "1";
-          ucNounText.style.transform = "translateY(0)";
-        }, 260);
-      }
-
-      setInterval(() => switchUcTab((ucIdx + 1) % ucNouns.length), 5000);
-    </script>
-  </body>
+</body>
 </html>

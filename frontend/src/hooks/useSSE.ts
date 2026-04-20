@@ -130,6 +130,7 @@ export function useRunStream(
         }
 
         if (isTerminal) {
+          retries = 0;
           stopped = true;
           handlersRef.current.onDone?.(me.data);
           es?.close();
@@ -147,10 +148,6 @@ export function useRunStream(
           }
         }
       }) as EventListener);
-
-      es.onopen = () => {
-        retries = 0;
-      };
 
       es.onerror = () => {
         es?.close();

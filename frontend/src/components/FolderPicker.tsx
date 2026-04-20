@@ -110,13 +110,13 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-lg rounded-xl border border-[#d1d1d6] bg-white shadow-xl flex flex-col max-h-[70vh]">
+      <div className="w-full max-w-lg rounded-xl border border-border/70 bg-surface/95 shadow-lg backdrop-blur-md flex flex-col max-h-[70vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#d1d1d6]">
-          <span className="text-sm font-semibold text-[#1d1d1f]">Select folder</span>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
+          <span className="text-[13px] font-semibold text-foreground">Select folder</span>
           <button
             onClick={onClose}
-            className="rounded p-1 text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="Close"
           >
             ✕
@@ -128,26 +128,26 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
           (() => {
             const { mountName, segments } = breadcrumbs(phase.currentPath, phase.mountRoot);
             return (
-              <div className="flex items-center gap-0.5 px-4 py-2 text-xs text-[#6e6e73] flex-wrap border-b border-[#f0f0f0]">
+              <div className="flex items-center gap-0.5 px-4 py-2 text-xs text-muted-foreground flex-wrap border-b border-border/70">
                 <button
                   onClick={() => browse(phase.mountRoot)}
                   className={
                     segments.length === 0
-                      ? 'font-medium text-[#1d1d1f]'
-                      : 'hover:text-[#0071e3] hover:underline'
+                      ? 'font-medium text-foreground'
+                      : 'hover:text-accent hover:underline'
                   }
                 >
                   {mountName}
                 </button>
                 {segments.map((seg, idx) => (
                   <span key={idx} className="flex items-center gap-0.5">
-                    <span className="text-[#d1d1d6]">/</span>
+                    <span className="text-border-strong">/</span>
                     <button
                       onClick={() => browse(segmentPath(phase.mountRoot, segments, idx))}
                       className={
                         idx === segments.length - 1
-                          ? 'font-medium text-[#1d1d1f]'
-                          : 'hover:text-[#0071e3] hover:underline'
+                          ? 'font-medium text-foreground'
+                          : 'hover:text-accent hover:underline'
                       }
                     >
                       {seg}
@@ -161,23 +161,23 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
         {/* Body */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {phase.state === 'loading' && (
-            <div className="flex items-center justify-center py-12 text-sm text-[#6e6e73]">
+            <div className="flex items-center justify-center py-12 text-[13px] text-muted-foreground">
               Loading…
             </div>
           )}
 
           {phase.state === 'error' && (
-            <div className="px-4 py-4 text-sm text-[#ff3b30]">{phase.message}</div>
+            <div className="px-4 py-4 text-[13px] text-destructive">{phase.message}</div>
           )}
 
           {phase.state === 'no-mounts' && (
             <div className="px-6 py-8 text-center space-y-3">
-              <p className="text-sm font-medium text-[#1d1d1f]">No folders mounted yet</p>
-              <p className="text-xs text-[#6e6e73]">
+              <p className="text-[13px] font-medium text-foreground">No folders mounted yet</p>
+              <p className="text-xs text-muted-foreground">
                 Add a bind-mount to the <span className="font-mono">backend</span> service in{' '}
                 <span className="font-mono">docker-compose.yml</span>, then restart:
               </p>
-              <pre className="inline-block rounded-lg bg-[#f5f5f7] border border-[#e5e5ea] px-4 py-3 text-left text-xs font-mono text-[#1d1d1f] whitespace-pre">
+              <pre className="inline-block rounded-lg border border-border/70 bg-muted px-4 py-3 text-left text-xs font-mono text-foreground whitespace-pre">
                 {`volumes:
   - /your/local/path:/workspaces/my-project`}
               </pre>
@@ -185,12 +185,12 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
           )}
 
           {phase.state === 'browsing' && (
-            <ul className="divide-y divide-[#f0f0f0]">
+            <ul className="divide-y divide-border/50">
               {phase.parent !== null && (
                 <li>
                   <button
                     onClick={() => browse(phase.parent!)}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-[#6e6e73] hover:bg-[#f5f5f7]"
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] text-muted-foreground hover:bg-accent/5"
                   >
                     <span>↑</span>
                     <span className="font-mono">..</span>
@@ -198,16 +198,16 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
                 </li>
               )}
               {phase.entries.length === 0 && (
-                <li className="px-4 py-3 text-sm text-[#6e6e73]">No subdirectories</li>
+                <li className="px-4 py-3 text-[13px] text-muted-foreground">No subdirectories</li>
               )}
               {phase.entries.map((entry) => (
                 <li key={entry.path}>
                   <button
                     onClick={() => browse(entry.path)}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-[#f5f5f7]"
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] hover:bg-accent/5"
                   >
                     <span className="shrink-0">📁</span>
-                    <span className="font-mono text-[#1d1d1f] truncate">{entry.name}</span>
+                    <span className="font-mono text-foreground truncate">{entry.name}</span>
                   </button>
                 </li>
               ))}
@@ -216,9 +216,9 @@ export function FolderPicker({ value, onChange, onClose }: FolderPickerProps) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-[#d1d1d6] px-4 py-3 space-y-2">
+        <div className="border-t border-border/70 px-4 py-3 space-y-2">
           {isBrowsing && (
-            <p className="font-mono text-xs text-[#6e6e73] truncate" title={currentPath}>
+            <p className="font-mono text-xs text-muted-foreground truncate" title={currentPath}>
               {currentPath}
             </p>
           )}

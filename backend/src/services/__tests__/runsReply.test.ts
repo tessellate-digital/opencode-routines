@@ -216,88 +216,18 @@ describe('POST /:id/reply — SDK-backed run (session_id IS NOT NULL)', () => {
   });
 });
 
-describe('POST /:id/reply — Legacy run (session_id IS NULL)', () => {
-  it('calls startRun WITHOUT a session_id (starts fresh session)', async () => {
+describe('POST /:id/reply — run without session_id', () => {
+  it('returns 400 when run has no session_id', async () => {
     const run = makeRun({ session_id: null, status: 'success' });
     mocks.db.runsById['run-1'] = run;
     mocks.db.routinesById['routine-1'] = makeRoutine();
 
-    await postReply('run-1', 'follow-up');
+    const res = await postReply('run-1', 'follow-up');
 
-    expect(mocks.startRun).toHaveBeenCalledOnce();
-    const [, , , calledSessionId] = mocks.startRun.mock.calls[0];
-    expect(calledSessionId).toBeUndefined();
-  });
-
-  it('includes a legacy transcript seed in the prompt', async () => {
-    const run = makeRun({
-      session_id: null,
-      status: 'success',
-      prompt: 'tell me about cats',
-      stdout: JSON.stringify({ type: 'text', data: 'Cats are mammals.' }),
-    });
-    mocks.db.runsById['run-1'] = run;
-    mocks.db.routinesById['routine-1'] = makeRoutine();
-
-    await postReply('run-1', 'what about dogs?');
-
-    const [, , calledPrompt] = mocks.startRun.mock.calls[0];
-    expect(calledPrompt).toContain('Legacy conversation transcript:');
-    expect(calledPrompt).toContain('User: tell me about cats');
-    expect(calledPrompt).toContain('Assistant: Cats are mammals.');
-    expect(calledPrompt).toContain('what about dogs?');
-  });
-
-  it('walks a multi-hop parent_run_id chain (2 runs) and includes both turns in transcript', async () => {
-    // run-2 is replied to; run-1 is its parent (no session_id on either)
-    const run1 = makeRun({
-      id: 'run-1',
-      session_id: null,
-      status: 'success',
-      prompt: 'first question',
-      parent_run_id: null,
-      stdout: JSON.stringify({ type: 'text', data: 'First answer.' }),
-    });
-    const run2 = makeRun({
-      id: 'run-2',
-      session_id: null,
-      status: 'success',
-      prompt: 'second question',
-      parent_run_id: 'run-1',
-      stdout: JSON.stringify({ type: 'text', data: 'Second answer.' }),
-    });
-    mocks.db.runsById['run-1'] = run1;
-    mocks.db.runsById['run-2'] = run2;
-    mocks.db.routinesById['routine-1'] = makeRoutine();
-
-    await postReply('run-2', 'third question');
-
-    const [, , calledPrompt] = mocks.startRun.mock.calls[0];
-    // Should include BOTH prior turns in the transcript
-    expect(calledPrompt).toContain('User: first question');
-    expect(calledPrompt).toContain('Assistant: First answer.');
-    expect(calledPrompt).toContain('User: second question');
-    expect(calledPrompt).toContain('Assistant: Second answer.');
-    expect(calledPrompt).toContain('third question');
-  });
-
-  it('falls back gracefully when legacy chain has no assistant text', async () => {
-    const run = makeRun({
-      session_id: null,
-      status: 'failed',
-      prompt: 'do something',
-      stdout: '', // no output
-    });
-    mocks.db.runsById['run-1'] = run;
-    mocks.db.routinesById['routine-1'] = makeRoutine();
-
-    const res = await postReply('run-1', 'try again');
-
-    expect(res.status).toBe(202);
-    const [, , calledPrompt] = mocks.startRun.mock.calls[0];
-    expect(calledPrompt).toContain('Legacy conversation transcript:');
-    expect(calledPrompt).toContain('User: do something');
-    expect(calledPrompt).toContain('try again');
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { detail: string };
+    expect(body.detail).toBe('Run has no session to reply to');
+    expect(mocks.startRun).not.toHaveBeenCalled();
   });
 });
 
@@ -318,7 +248,7 @@ describe('POST /:id/reply — error cases', () => {
   });
 
   it('returns 404 when routine is missing', async () => {
-    const run = makeRun({ session_id: null, status: 'success' });
+    const run = makeRun({ session_id: 'session-abc', status: 'success' });
     mocks.db.runsById['run-1'] = run;
     // routinesById has no 'routine-1'
 

@@ -32,8 +32,10 @@
  *   All other events  → ignored (no new frontend event types invented).
  */
 
+import { db } from '../database';
 import * as runStreamStore from './runStreamStore';
 import type { StreamEvent } from './runStreamStore';
+import { logger } from '../util/logger';
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
@@ -43,6 +45,8 @@ interface RunSubscriber {
   toolStates: Map<string, string>;
   /** messageID → role, populated from message.updated events. */
   messageRoles: Map<string, string>;
+  /** The user message ID for the current prompt — parts for other messages are assistant. */
+  userMessageId: string | null;
   /** Set to true when a session.error event is received for this session. */
   errorSeen: boolean;
   /** Resolves when session.idle fires (or when the subscriber is removed). */
@@ -59,6 +63,8 @@ interface ServerRelay {
   generator: AsyncIterator<any> | null;
   /** Set to true when closeServerRelay() is called so the loop exits cleanly. */
   closed: boolean;
+  /** True while runRelayLoop is executing (set synchronously to avoid races). */
+  loopActive: boolean;
 }
 
 // ─── Module-level state ───────────────────────────────────────────────────────
@@ -130,17 +136,38 @@ function translatePart(
       return null;
     }
 
+    case 'reasoning': {
+      // Thinking/reasoning tokens - streamed to frontend but NOT persisted
+      if (part.text) {
+        return { type: 'thinking', data: part.text as string };
+      }
+      return null;
+    }
+
     case 'step-start': {
       return { type: 'status', data: '--- step ---\n' };
     }
 
     case 'step-finish': {
-      const tokens = (part.tokens as Record<string, number>) ?? {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tokens = (part.tokens ?? {}) as any;
+      const cache = tokens.cache ?? {};
       const total = (tokens.input ?? 0) + (tokens.output ?? 0) + (tokens.reasoning ?? 0);
       const cost = (part.cost as number) ?? 0;
+      // Return stats event with structured data for persistence
       return {
-        type: 'status',
-        data: `--- done (tokens: ${total}, cost: $${cost.toFixed(4)}) ---\n`,
+        type: 'stats',
+        data: JSON.stringify({
+          tokens: {
+            input: tokens.input ?? 0,
+            output: tokens.output ?? 0,
+            reasoning: tokens.reasoning ?? 0,
+            cache_read: cache.read ?? 0,
+            cache_write: cache.write ?? 0,
+            total,
+          },
+          cost,
+        }),
       };
     }
 
@@ -159,6 +186,8 @@ function translatePart(
  * extracted from each SDK event's payload.
  */
 async function runRelayLoop(client: unknown, relay: ServerRelay): Promise<void> {
+  relay.loopActive = true;
+  logger.debug('[relay] Starting relay loop');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c = client as any;
 
@@ -166,7 +195,7 @@ async function runRelayLoop(client: unknown, relay: ServerRelay): Promise<void> 
   try {
     result = await c.global.event();
   } catch (err) {
-    console.error('[opencodeEventRelay] Failed to subscribe to global event stream:', err);
+    logger.error('[opencodeEventRelay] Failed to subscribe to global event stream:', err);
     return;
   }
 
@@ -187,6 +216,11 @@ async function runRelayLoop(client: unknown, relay: ServerRelay): Promise<void> 
         continue;
       }
 
+      console.log(
+        `[relay] Event: ${payload.type}`,
+        JSON.stringify(payload.properties ?? {}).slice(0, 300)
+      );
+
       switch (payload.type) {
         case 'message.updated': {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -201,6 +235,10 @@ async function runRelayLoop(client: unknown, relay: ServerRelay): Promise<void> 
             break;
           }
           subscriber.messageRoles.set(info.id as string, info.role as string);
+          // Track user message ID so we can identify assistant parts before role is known
+          if (info.role === 'user') {
+            subscriber.userMessageId = info.id as string;
+          }
           break;
         }
 
@@ -216,11 +254,11 @@ async function runRelayLoop(client: unknown, relay: ServerRelay): Promise<void> 
             break;
           }
 
-          // Only relay assistant message parts. Role is tracked via message.updated events.
-          // If the role is unknown (message.updated not yet seen), skip — user parts always
-          // arrive before assistant parts in practice, so unknown likely means user message.
-          const role = subscriber.messageRoles.get(part.messageID as string);
-          if (role !== 'assistant') {
+          // Only relay assistant message parts. The SDK sends message.part.updated events
+          // BEFORE the message.updated event that establishes the role, so we can't rely
+          // on messageRoles. Instead, we track the user message ID and skip parts for it.
+          // Any part for a different message is assumed to be from the assistant.
+          if (part.messageID === subscriber.userMessageId) {
             break;
           }
 
@@ -253,6 +291,9 @@ async function runRelayLoop(client: unknown, relay: ServerRelay): Promise<void> 
           subscriber.errorSeen = true;
           sessionErrorFlags.set(sid, true);
           runStreamStore.push(subscriber.runId, { type: 'error', data: `[error] ${msg}\n` });
+          db.prepare(
+            `UPDATE runs SET status = 'failed', finished_at = COALESCE(finished_at, ?) WHERE id = ? AND status = 'running'`
+          ).run(new Date().toISOString(), subscriber.runId);
           break;
         }
 
@@ -284,6 +325,8 @@ async function runRelayLoop(client: unknown, relay: ServerRelay): Promise<void> 
     }
   } finally {
     relay.generator = null;
+    relay.loopActive = false;
+    logger.debug('[relay] Relay loop exited');
   }
 }
 
@@ -307,12 +350,20 @@ export function subscribeRun(client: unknown, sessionId: string, runId: string):
       subscribers: new Map(),
       generator: null,
       closed: false,
+      loopActive: false,
     };
     serverRelays.set(client, relay);
+  }
 
-    // Start the shared loop in the background — errors are logged, not thrown.
+  // (Re)start the relay loop if it is not currently running.
+  // The loop may have exited because the global event stream closed
+  // (network issue, server restart, etc.) — a fresh subscription is needed.
+  if (!relay.closed && !relay.loopActive) {
+    console.log(
+      `[relay] ${serverRelays.has(client) ? 'Restarting' : 'Starting'} relay loop for session ${sessionId} (run ${runId})`
+    );
     runRelayLoop(client, relay).catch((err) => {
-      console.error('[opencodeEventRelay] Server relay loop error:', err);
+      logger.error('[opencodeEventRelay] Server relay loop error:', err);
     });
   }
 
@@ -325,6 +376,7 @@ export function subscribeRun(client: unknown, sessionId: string, runId: string):
     runId,
     toolStates: new Map(),
     messageRoles: new Map(),
+    userMessageId: null,
     errorSeen: false,
     drained,
     resolveDrained,
@@ -343,16 +395,16 @@ export function subscribeRun(client: unknown, sessionId: string, runId: string):
  */
 export function unsubscribeRun(sessionId: string): void {
   const client = sessionToClient.get(sessionId);
-  if (!client) {
-    return;
+  if (client) {
+    const relay = serverRelays.get(client);
+    if (relay) {
+      relay.subscribers.delete(sessionId);
+    }
+    sessionToClient.delete(sessionId);
   }
-
-  const relay = serverRelays.get(client);
-  if (relay) {
-    relay.subscribers.delete(sessionId);
-  }
-
-  sessionToClient.delete(sessionId);
+  // Always clean up error flags — session.idle may have already removed
+  // the sessionToClient mapping, but the stale flag must not leak to a
+  // follow-up run that reuses the same sessionId.
   sessionErrorFlags.delete(sessionId);
 }
 
@@ -392,18 +444,19 @@ export function closeServerRelay(client: unknown): void {
  * Wait until the relay has finished pushing all buffered events for the given
  * session (i.e. until `session.idle` fires), then resolve.
  *
+ * Since `prompt()` is non-blocking (returns immediately), this is the actual
+ * wait for the LLM to finish responding. There is no timeout — the
+ * `session.idle` event from the SDK is the authoritative completion signal.
+ * Stuck runs should be cancelled via `cancelRun()`.
+ *
  * - If the subscriber is already gone (already drained or manually removed),
  *   resolves immediately.
- * - If `session.idle` never arrives within `timeoutMs`, resolves anyway so a
- *   stuck relay never blocks the executor's finally block forever.
  *
  * @param sessionId The SDK session ID to wait on.
- * @param timeoutMs Maximum time to wait before resolving unconditionally (default 10 s).
  */
-export function waitForDrain(sessionId: string, timeoutMs = 10_000): Promise<void> {
+export function waitForDrain(sessionId: string): Promise<void> {
   const client = sessionToClient.get(sessionId);
   if (!client) {
-    // Subscriber is already gone — nothing to drain.
     return Promise.resolve();
   }
 
@@ -413,15 +466,7 @@ export function waitForDrain(sessionId: string, timeoutMs = 10_000): Promise<voi
     return Promise.resolve();
   }
 
-  const timeout = new Promise<void>((resolve) => {
-    const t = setTimeout(resolve, timeoutMs);
-    // Allow Node.js to exit even if this timer is still pending
-    if (typeof t === 'object' && t !== null && 'unref' in t) {
-      (t as NodeJS.Timeout).unref();
-    }
-  });
-
-  return Promise.race([subscriber.drained, timeout]);
+  return subscriber.drained;
 }
 
 /**
