@@ -45,7 +45,8 @@ function routineToResponse(r: RoutineRow) {
 }
 
 router.get('/', (c) => {
-  const rows = routinesRepository.findAll();
+  const status = c.req.query('status');
+  const rows = routinesRepository.findAll(status ? { status } : undefined);
   return c.json(rows.map((r) => routineToResponse(r)));
 });
 

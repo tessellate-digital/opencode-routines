@@ -140,7 +140,7 @@ function TriggerCard({
         </button>
       </div>
       {!collapsed && (
-        <div className="trig-body">
+        <div className="py-[14px] px-4 pb-4 border-t border-[var(--border)] bg-[var(--surface)] grid gap-[14px]">
           {draft.type === 'cron' && (
             <CronPicker
               value={draft.expression}
@@ -521,7 +521,7 @@ export default function RoutineForm() {
           )}
         </div>
 
-        <div className="inline-group">
+        <div className="grid grid-cols-2 gap-2.5">
           <div className="form-row !mb-0">
             <label>Model</label>
             <SelectDropdown
@@ -568,13 +568,13 @@ export default function RoutineForm() {
           {addingTriggerType === null ? (
             <button
               type="button"
-              className="add-trigger"
+              className="inline-flex items-center gap-1.5 py-1.5 px-2.5 rounded-[6px] text-[13px] text-[color:var(--accent)] font-medium cursor-pointer border-0 bg-transparent hover:bg-[var(--accent-soft)]"
               onClick={() => setAddingTriggerType('cron')}
             >
               + Add trigger
             </button>
           ) : (
-            <div className="trigger-type-picker">
+            <div className="flex items-center gap-2 mt-2">
               <SelectDropdown
                 value={addingTriggerType || 'cron'}
                 onChange={(v) => setAddingTriggerType(v as 'cron' | 'watcher')}
@@ -613,7 +613,7 @@ export default function RoutineForm() {
             },
             { id: 'foreground', label: 'Foreground', desc: 'only runs while the app is open' },
           ].map((opt) => (
-            <label key={opt.id} className="run-mode-option">
+            <label key={opt.id} className="flex items-center gap-2.5 py-2.5 cursor-pointer text-sm">
               <input
                 type="radio"
                 name="runMode"
@@ -622,10 +622,11 @@ export default function RoutineForm() {
                 onChange={() =>
                   setForm((f) => ({ ...f, run_mode: opt.id as 'background' | 'foreground' }))
                 }
+                className="w-[18px] h-[18px] accent-[var(--accent)] shrink-0 cursor-pointer"
               />
               <span>
-                <span className="rm-label">{opt.label}</span>
-                <span className="rm-desc"> — {opt.desc}</span>
+                <span className="font-semibold">{opt.label}</span>
+                <span className="text-[color:var(--fg-muted)] font-normal"> — {opt.desc}</span>
               </span>
             </label>
           ))}

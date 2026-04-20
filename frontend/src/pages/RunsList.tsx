@@ -59,6 +59,7 @@ export default function RunsList() {
       const results = await api.getRuns({
         limit: PAGE_SIZE + 1,
         offset: page * PAGE_SIZE,
+        status: filter !== 'all' ? filter : undefined,
       });
       setHasNext(results.length > PAGE_SIZE);
       setRuns(results.slice(0, PAGE_SIZE));
@@ -68,7 +69,7 @@ export default function RunsList() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, filter]);
 
   useEffect(() => {
     load();
@@ -82,13 +83,11 @@ export default function RunsList() {
   if (loading) return <p className="hint">Loading…</p>;
   if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
 
-  const filtered = runs
-    .filter((r) => filter === 'all' || r.status === filter)
-    .filter((r) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return r.routine_name.toLowerCase().includes(q) || r.id.includes(q);
-    });
+  const filtered = runs.filter((r) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return r.routine_name.toLowerCase().includes(q) || r.id.includes(q);
+  });
 
   return (
     <div className="route-fade">
@@ -105,7 +104,7 @@ export default function RunsList() {
             <button
               key={p}
               className={classNames('pill', { active: filter === p })}
-              onClick={() => setFilter(p)}
+              onClick={() => { setFilter(p); setPage(0); }}
             >
               {p[0].toUpperCase() + p.slice(1)}
             </button>

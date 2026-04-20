@@ -11,6 +11,7 @@ import { useRunStore, type Segment } from '../stores/runStore';
 import type { Run } from '../lib/types';
 import { SiriOrb } from '../components/SiriOrb';
 import { TodoBox, type TodoItem } from '../components/TodoBox';
+import './RunDetail.style.css';
 
 function parseSegments(events: Array<{ type: string; data: string }>): Segment[] {
   const segments: Segment[] = [];
@@ -271,8 +272,8 @@ export default function RunDetail() {
   const [replying, setReplying] = useState(false);
   const [orbExiting, setOrbExiting] = useState(false);
 
-  const chatRef = useRef<HTMLDivElement>(null);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+const taRef = useRef<HTMLTextAreaElement>(null);
+  const scrollAfterReply = useRef(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -299,12 +300,12 @@ export default function RunDetail() {
     load();
   }, [id]);
 
-  const scrollToBottom = () => {
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  };
   useEffect(() => {
-    scrollToBottom();
-  }, [liveSegments, thread.length, isStreaming]);
+    if (scrollAfterReply.current) {
+      scrollAfterReply.current = false;
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+  }, [thread.length]);
 
   const latestRunId = thread[thread.length - 1]?.id;
 
@@ -391,6 +392,7 @@ export default function RunDetail() {
     if (taRef.current) taRef.current.style.height = 'auto';
     try {
       const { run_id } = await api.replyToRun(latestRunId, prompt);
+      scrollAfterReply.current = true;
       addReplyRun(run_id, prompt, currentRun.routine_name, currentRun.routine_id);
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'));
@@ -416,6 +418,15 @@ export default function RunDetail() {
     }
   };
 
+  const todos = useMemo(() => {
+    const allSegments: Segment[] = [];
+    for (const run of thread) {
+      allSegments.push(...parseSegments(run.stdout || []));
+    }
+    allSegments.push(...liveSegments);
+    return extractTodos(allSegments);
+  }, [thread, liveSegments]);
+
   if (loading) return <p className="hint">Loading...</p>;
   if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
   if (!thread.length)
@@ -426,15 +437,6 @@ export default function RunDetail() {
   const canReply = isFinished && currentRun.status !== 'lost';
   const inputDisabled = replying || isStreaming || currentRun.status === 'lost';
   const showThinking = isStreaming || orbExiting;
-
-  const todos = useMemo(() => {
-    const allSegments: Segment[] = [];
-    for (const run of thread) {
-      allSegments.push(...parseSegments(run.stdout || []));
-    }
-    allSegments.push(...liveSegments);
-    return extractTodos(allSegments);
-  }, [thread, liveSegments]);
 
   return (
     <div className="route-fade">
@@ -493,7 +495,9 @@ export default function RunDetail() {
         </div>
       )}
 
-      <div className="chat" ref={chatRef}>
+      <TodoBox items={todos} />
+
+      <div className="grid gap-[18px] pb-10">
         {thread.map((run, ti) => {
           const isLast = ti === thread.length - 1;
           const runToggled = toggledTools[run.id] ?? new Set<number>();
@@ -526,19 +530,14 @@ export default function RunDetail() {
 
       {/* Chat composer */}
       <div className="flex justify-center mt-3">
-        <div className={classNames('chat-composer', { thinking: showThinking })}>
+        <div
+          className={classNames('chat-composer', { thinking: showThinking })}
+          onClick={showThinking ? handleCancel : undefined}
+        >
           {showThinking ? (
-            <>
-              <div className={classNames({ 'orb-exit': orbExiting })}>
-                <SiriOrb size="42px" animationDuration={12} />
-              </div>
-              <button
-                className="btn sm danger ml-auto rounded-full shrink-0 whitespace-nowrap"
-                onClick={handleCancel}
-              >
-                Stop
-              </button>
-            </>
+            <div className={classNames({ 'orb-exit': orbExiting })}>
+              <SiriOrb size="42px" animationDuration={12} />
+            </div>
           ) : (
             <div className={classNames('composer-input', { 'fade-in': !showThinking })}>
               <textarea
@@ -573,7 +572,6 @@ export default function RunDetail() {
           )}
         </div>
       </div>
-      <TodoBox items={todos} />
     </div>
   );
 }

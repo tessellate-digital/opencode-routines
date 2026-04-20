@@ -29,7 +29,12 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
 
 export const api = {
   // Routines
-  getRoutines: () => request<Routine[]>('/routines'),
+  getRoutines: (params?: { status?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set('status', params.status);
+    const qs = sp.toString();
+    return request<Routine[]>(`/routines${qs ? `?${qs}` : ''}`);
+  },
   getRoutine: (id: string) => request<Routine>(`/routines/${id}`),
   createRoutine: (data: Partial<Routine>) =>
     request<Routine>('/routines', {

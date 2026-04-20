@@ -1,0 +1,88 @@
+@property --orb-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.siri-orb {
+  display: grid;
+  grid-template-areas: 'stack';
+  overflow: hidden;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.siri-orb::before,
+.siri-orb::after {
+  content: '';
+  display: block;
+  grid-area: stack;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.siri-orb::before {
+  background:
+    conic-gradient(
+      from calc(var(--orb-angle) * 2) at 25% 70%,
+      var(--orb-c3),
+      transparent 20% 80%,
+      var(--orb-c3)
+    ),
+    conic-gradient(
+      from calc(var(--orb-angle) * 2) at 45% 75%,
+      var(--orb-c2),
+      transparent 30% 60%,
+      var(--orb-c2)
+    ),
+    conic-gradient(
+      from calc(var(--orb-angle) * -3) at 80% 20%,
+      var(--orb-c1),
+      transparent 40% 60%,
+      var(--orb-c1)
+    ),
+    conic-gradient(
+      from calc(var(--orb-angle) * 2) at 15% 5%,
+      var(--orb-c2),
+      transparent 10% 90%,
+      var(--orb-c2)
+    ),
+    conic-gradient(
+      from calc(var(--orb-angle) * 1) at 20% 80%,
+      var(--orb-c1),
+      transparent 10% 90%,
+      var(--orb-c1)
+    ),
+    conic-gradient(
+      from calc(var(--orb-angle) * -2) at 85% 10%,
+      var(--orb-c3),
+      transparent 20% 80%,
+      var(--orb-c3)
+    );
+  box-shadow: inset var(--orb-bg) 0 0 var(--orb-shadow) calc(var(--orb-shadow) * 0.2);
+  filter: blur(var(--orb-blur)) contrast(var(--orb-contrast));
+  animation: siri-rotate var(--orb-duration) linear infinite;
+}
+.siri-orb::after {
+  background-image: radial-gradient(
+    circle at center,
+    var(--orb-bg) var(--orb-dot),
+    transparent var(--orb-dot)
+  );
+  background-size: calc(var(--orb-dot) * 2) calc(var(--orb-dot) * 2);
+  backdrop-filter: blur(calc(var(--orb-blur) * 2)) contrast(calc(var(--orb-contrast) * 2));
+  mix-blend-mode: overlay;
+  mask-image: radial-gradient(black var(--orb-mask-r), transparent 75%);
+}
+
+@keyframes siri-rotate {
+  to {
+    --orb-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .siri-orb::before {
+    animation: none;
+  }
+}

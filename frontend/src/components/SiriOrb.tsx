@@ -1,4 +1,5 @@
 import classNames from 'classnames';
+import './SiriOrb.style.css';
 
 const SIZE_THRESHOLD_SMALL = 50;
 const SIZE_THRESHOLD_TINY = 30;

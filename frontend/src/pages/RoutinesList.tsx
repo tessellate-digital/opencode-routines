@@ -51,14 +51,14 @@ export default function RoutinesList() {
 
   const load = useCallback(async () => {
     try {
-      setRoutines(await api.getRoutines());
+      setRoutines(await api.getRoutines(filter !== 'all' ? { status: filter } : undefined));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     load();
@@ -72,16 +72,11 @@ export default function RoutinesList() {
   if (loading) return <p className="hint">Loading…</p>;
   if (error) return <p className="text-[color:var(--status-failed)] text-[13px]">Error: {error}</p>;
 
-  const filtered = routines
-    .filter((r) => {
-      if (filter === 'all') return true;
-      return r.last_run_status === filter;
-    })
-    .filter((r) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return r.name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
-    });
+  const filtered = routines.filter((r) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return r.name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
+  });
 
   return (
     <div className="route-fade">
@@ -183,14 +178,14 @@ export default function RoutinesList() {
         </div>
       ) : routines.length === 0 ? (
         <div className="card">
-          <div className="empty">
-            <div className="orb">
+          <div className="py-20 px-10 text-center grid gap-2.5 justify-items-center">
+            <div className="w-[72px] h-[72px] rounded-[22px] bg-gradient-to-br from-[#4f46e5] to-[#c5b8ff] grid place-items-center text-white mb-3 shadow-[0_12px_40px_rgba(79,70,229,0.3)] animate-[float_4s_ease-in-out_infinite]">
               <svg viewBox="0 0 16 16" width="32" height="32" fill="currentColor" stroke="none">
                 <path d="M8 1.5 9.4 6 14 7.4 9.4 8.8 8 13.3 6.6 8.8 2 7.4 6.6 6 8 1.5z" />
               </svg>
             </div>
-            <h2>Nothing scheduled yet</h2>
-            <p>
+            <h2 className="text-[22px] m-0 font-semibold">Nothing scheduled yet</h2>
+            <p className="text-[color:var(--fg-muted)] text-sm max-w-[420px] m-0 leading-[1.55]">
               Routines run a prompt when a trigger fires — on a schedule, or when files change. Set
               your first one up in under a minute.
             </p>

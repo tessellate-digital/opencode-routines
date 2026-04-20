@@ -76,7 +76,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
   const active = value.mode !== 'none';
 
   return (
-    <div className="file-type-filter">
+    <div className="flex flex-col gap-2.5">
       <div className="chip-row">
         {MODES.map((m) => (
           <button
@@ -91,7 +91,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
       </div>
 
       {active && (
-        <div className="ftf-detail">
+        <div className="flex flex-col gap-2.5 ml-1 pl-[14px] border-l-2 border-[var(--border)]">
           <div className="chip-row">
             {CATEGORIES.map((cat) => {
               const allPresent = cat.extensions.every((ext) => selected.has(ext));
@@ -108,7 +108,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
             })}
           </div>
 
-          <div className="ftf-custom">
+          <div className="flex gap-1.5 items-center">
             <input
               ref={inputRef}
               type="text"
@@ -116,7 +116,7 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
               onChange={(e) => setCustomInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Custom extension, e.g. .csv"
-              className="input"
+              className="input flex-1 max-w-[220px] !py-1.5 !px-2 !text-[13px]"
             />
             <button
               type="button"
@@ -129,17 +129,30 @@ export function FileTypeFilter({ value, onChange }: FileTypeFilterProps) {
           </div>
 
           {value.patterns.length > 0 && (
-            <div className="ftf-tags">
+            <div className="flex flex-wrap gap-1.5">
               {value.patterns.map((ext) => (
                 <span
                   key={ext}
-                  className={classNames('ftf-tag', {
-                    include: value.mode === 'include',
-                    exclude: value.mode === 'exclude',
-                  })}
+                  className={classNames(
+                    'inline-flex items-center gap-1 py-1 px-2 rounded-[var(--r-sm)] text-xs font-mono',
+                    {
+                      'text-[color:var(--status-success)]': value.mode === 'include',
+                      'text-[color:var(--status-failed)]': value.mode === 'exclude',
+                    }
+                  )}
+                  style={{
+                    background:
+                      value.mode === 'include'
+                        ? 'color-mix(in srgb, var(--status-success) 15%, transparent)'
+                        : 'color-mix(in srgb, var(--status-failed) 15%, transparent)',
+                  }}
                 >
                   {ext}
-                  <button type="button" onClick={() => toggle(ext)} className="ftf-tag-remove">
+                  <button
+                    type="button"
+                    onClick={() => toggle(ext)}
+                    className="bg-transparent border-0 p-0 ml-0.5 cursor-pointer opacity-70 hover:opacity-100 text-inherit text-sm leading-none"
+                  >
                     ×
                   </button>
                 </span>

@@ -12,7 +12,12 @@ export const routinesRepository = {
       | undefined;
   },
 
-  findAll(): RoutineRow[] {
+  findAll(filters?: { status?: string }): RoutineRow[] {
+    if (filters?.status) {
+      return db
+        .prepare('SELECT * FROM routines WHERE last_run_status = ? ORDER BY created_at DESC')
+        .all(filters.status) as RoutineRow[];
+    }
     return db.prepare('SELECT * FROM routines ORDER BY created_at DESC').all() as RoutineRow[];
   },
 

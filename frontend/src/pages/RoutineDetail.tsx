@@ -271,33 +271,33 @@ export default function RoutineDetail() {
 
       <div className="grid gap-5">
         {/* Prompt */}
-        <div className="kv-card">
-          <div className="label">Prompt</div>
+        <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+          <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Prompt</div>
           <div className="font-mono text-[13px] leading-[1.65] whitespace-pre-wrap mt-1">
             {routine.prompt}
           </div>
         </div>
 
         {/* Config grid */}
-        <div className="config-grid">
-          <div className="kv-card">
-            <div className="label">Model</div>
-            <div className="val mono">{routine.model || '—'}</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Model</div>
+            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.model || '—'}</div>
           </div>
-          <div className="kv-card">
-            <div className="label">Agent</div>
-            <div className="val mono">{routine.agent}</div>
+          <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Agent</div>
+            <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.agent}</div>
           </div>
-          <div className="kv-card">
-            <div className="label">Run mode</div>
-            <div className="val">
+          <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+            <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Run mode</div>
+            <div className="text-sm font-medium text-[color:var(--fg)]">
               {routine.run_mode === 'foreground' ? 'Foreground only' : 'Background'}
             </div>
           </div>
           {routine.workspace_path && (
-            <div className="kv-card">
-              <div className="label">Workspace</div>
-              <div className="val mono flex items-center gap-1.5">
+            <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Workspace</div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)] flex items-center gap-1.5">
                 {resolveHostName(routine.workspace_path)}
                 {!routine.workspace_accessible && (
                   <span className="text-[10px] text-[color:var(--status-failed)]">
@@ -308,15 +308,15 @@ export default function RoutineDetail() {
             </div>
           )}
           {routine.repository && (
-            <div className="kv-card">
-              <div className="label">Repository</div>
-              <div className="val mono">{routine.repository}</div>
+            <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Repository</div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.repository}</div>
             </div>
           )}
           {routine.repository && (
-            <div className="kv-card">
-              <div className="label">Branch</div>
-              <div className="val mono">{routine.branch}</div>
+            <div className="py-4 px-[18px] bg-[var(--surface-2)] border border-[var(--border)] rounded-[var(--r-md)]">
+              <div className="font-mono text-[10.5px] uppercase tracking-[.08em] text-[color:var(--fg-dim)] mb-1.5">Branch</div>
+              <div className="font-mono text-[13px] font-medium text-[color:var(--fg)]">{routine.branch}</div>
             </div>
           )}
         </div>
